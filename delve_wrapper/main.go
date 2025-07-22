@@ -14,13 +14,16 @@ import (
 	"github.com/go-delve/delve/service/rpccommon"
 )
 
+var (
+	workingDir string
+)
+
 func main() {
 	// -----------------------------------------------
 	// Command-line flags
 	// -----------------------------------------------
 	var showHelp bool
-	flag.BoolVar(&showHelp, "help", false, "tdlv is a temporal workflow debugger. This is a wrapper for delve to provide a seamless experience for debugging temporal workflows.")
-	flag.BoolVar(&showHelp, "h", false, "tdlv is a temporal workflow debugger. This is a wrapper for delve to provide a seamless experience for debugging temporal workflows. (alias)")
+	flag.BoolVar(&showHelp, "help", false, "tdlv is a temporal workflow debugger. This is a wrapper for delve to provide a seamless experience for debugging temporal workflows. (alias: -h)")
 	var proxyPort int
 	flag.IntVar(&proxyPort, "p", 60000, "port for the tdlv proxy (default 60000)")
 	flag.Usage = func() {
@@ -52,7 +55,7 @@ func main() {
 			log.Fatal(fmt.Errorf("error closing listener: %w", err))
 		}
 	}()
-	workingDir, err := os.Getwd()
+	workingDir, err = os.Getwd()
 	if err != nil {
 		log.Fatal(fmt.Errorf("error getting working directory: %w", err))
 	}

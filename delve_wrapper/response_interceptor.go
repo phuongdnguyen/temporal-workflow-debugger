@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -273,7 +275,7 @@ func (rir *responseInterceptingReader) parseResponses() []byte {
 					}
 				}
 
-				log.Printf("%s ✅ Step-over completed in workflow code, forwarding normal response to GoLand", rir.name)
+				log.Printf("%s ✅ Step-over completed in user code, forwarding normal response to GoLand", rir.name)
 			}
 
 			// Special handling for State responses
@@ -376,7 +378,7 @@ func (rir *responseInterceptingReader) parseResponses() []byte {
 						}
 					}
 
-					log.Printf("%s ✅ Step-over completed in workflow code, forwarding normal response to GoLand", rir.name)
+					log.Printf("%s ✅ Step-over completed in user code, forwarding normal response to GoLand", rir.name)
 				}
 
 				// Special handling for State responses
@@ -433,40 +435,41 @@ func (rir *responseInterceptingReader) filterStacktraceResponse(jsonObj []byte, 
 		return nil
 	}
 
-	// Filter stack frames: find the deepest frame containing my-wf/main.go (workflow entry point)
-	// and keep all frames from 0 up to and including that frame (this includes workflow code in other files)
+	// Filter stack frames: find the deepest frame containing user code (working directory)
+	// and keep all frames from 0 up to and including that frame (this includes user code in other files)
 	filteredLocations := stacktraceOut.Locations
-	mainGoFrameIndex := -1
+	userCodeFrameIndex := -1
+	workingDir := getCurrentWorkingDir()
 
-	// Find the LAST/DEEPEST occurrence of main.go (highest index) - this is the actual workflow entry point
+	// Find the LAST/DEEPEST occurrence of user code (highest index) - this is the actual user entry point
 	for i := len(stacktraceOut.Locations) - 1; i >= 0; i-- {
 		frame := stacktraceOut.Locations[i]
-		if strings.Contains(frame.File, "my-wf/main.go") {
-			mainGoFrameIndex = i
-			break // Found the deepest main.go frame
+		if rir.isUserCodeFile(frame.File, workingDir) {
+			userCodeFrameIndex = i
+			break // Found the deepest user code frame
 		}
 	}
 
-	if mainGoFrameIndex == -1 {
-		log.Printf("[%s] ⚠️  No my-wf/main.go frame found, not filtering", rir.clientAddr)
+	if userCodeFrameIndex == -1 {
+		log.Printf("[%s] ⚠️  No user code frame found in working directory, not filtering", rir.clientAddr)
 		return nil // Don't filter if we can't find the target frame
 	}
 
-	// Keep frames from 0 up to and including the main.go frame (filters out adapter frames above it)
-	filteredLocations = stacktraceOut.Locations[0 : mainGoFrameIndex+1]
+	// Keep frames from 0 up to and including the user code frame (filters out adapter frames above it)
+	filteredLocations = stacktraceOut.Locations[0 : userCodeFrameIndex+1]
 	framesRemoved := len(stacktraceOut.Locations) - len(filteredLocations)
 
-	log.Printf("[%s] ✂️  Found workflow entry point at frame %d (my-wf/main.go)", rir.clientAddr, mainGoFrameIndex)
-	log.Printf("[%s] ✂️  Keeping frames 0-%d (includes workflow code in other files), filtering out %d adapter frames (original: %d, filtered: %d)",
-		rir.clientAddr, mainGoFrameIndex, framesRemoved, len(stacktraceOut.Locations), len(filteredLocations))
+	log.Printf("[%s] ✂️  Found user code entry point at frame %d", rir.clientAddr, userCodeFrameIndex)
+	log.Printf("[%s] ✂️  Keeping frames 0-%d (includes user code in working directory), filtering out %d adapter frames (original: %d, filtered: %d)",
+		rir.clientAddr, userCodeFrameIndex, framesRemoved, len(stacktraceOut.Locations), len(filteredLocations))
 
 	// UPDATE FRAME MAPPING: Create mapping from filtered frame index to original frame index
 	rir.frameMappingLock.Lock()
 	rir.frameMapping = make(map[int]int)
 
-	// Create 1:1 mapping for frames 0 to mainGoFrameIndex (no offset needed since we keep frames from the beginning)
+	// Create 1:1 mapping for frames 0 to userCodeFrameIndex (no offset needed since we keep frames from the beginning)
 	for filteredIndex := 0; filteredIndex < len(filteredLocations); filteredIndex++ {
-		originalIndex := filteredIndex // Direct mapping since we keep frames 0 to mainGoFrameIndex
+		originalIndex := filteredIndex // Direct mapping since we keep frames 0 to userCodeFrameIndex
 		rir.frameMapping[filteredIndex] = originalIndex
 		log.Printf("[%s] 🗺️  Frame mapping: filtered[%d] -> original[%d]", rir.clientAddr, filteredIndex, originalIndex)
 	}
@@ -643,29 +646,7 @@ func (rir *responseInterceptingReader) logStateResponse(jsonLine string) {
 		log.Printf("[%s] Current Thread ID: %d", rir.clientAddr, thread.ID)
 		log.Printf("[%s] Current Location: %s:%d", rir.clientAddr, thread.File, thread.Line)
 
-		if thread.Breakpoint != nil {
-			// bp := thread.Breakpoint
-			// log.Printf("[%s] *** BREAKPOINT HIT ***", rir.clientAddr)
-			// log.Printf("[%s] Breakpoint ID: %d", rir.clientAddr, bp.ID)
-			// log.Printf("[%s] Breakpoint File: %s", rir.clientAddr, bp.File)
-			// log.Printf("[%s] Breakpoint Line: %d", rir.clientAddr, bp.Line)
-			// log.Printf("[%s] Hit Count: %d", rir.clientAddr, bp.TotalHitCount)
-			// log.Printf("[%s] Function: %s", rir.clientAddr, bp.FunctionName)
-		}
-
 		if thread.BreakpointInfo != nil {
-			// log.Printf("[%s] Breakpoint Info - Variables: %d", rir.clientAddr, len(thread.BreakpointInfo.Variables))
-			// log.Printf("[%s] Breakpoint Info - Stacktrace depth: %d", rir.clientAddr, len(thread.BreakpointInfo.Stacktrace))
-
-			// // Log global breakpoint variables
-			// if len(thread.BreakpointInfo.Variables) > 0 {
-			// 	log.Printf("[%s] === BREAKPOINT VARIABLES ===", rir.clientAddr)
-			// 	for i, variable := range thread.BreakpointInfo.Variables {
-			// 		log.Printf("[%s] Var[%d]: %s = %s (%s)", rir.clientAddr, i, variable.Name, variable.Value, variable.Type)
-			// 	}
-			// 	log.Printf("[%s] === END BREAKPOINT VARIABLES ===", rir.clientAddr)
-			// }
-
 			// Check if this goroutine has adapter_go.notifyRunner as top frame
 			if len(thread.BreakpointInfo.Stacktrace) > 0 {
 				topFrame := thread.BreakpointInfo.Stacktrace[0]
@@ -717,21 +698,25 @@ func (rir *responseInterceptingReader) logStacktraceResponseDetails(stacktraceOu
 		return
 	}
 
-	// Filter stack frames: remove frames from the top until we find my-wf/main.go
+	// Filter stack frames: remove frames from the top until we find user code (working directory)
 	filteredLocations := stacktraceOut.Locations
-	mainGoFrameIndex := -1
+	userCodeFrameIndex := -1
+
+	// Get working directory (you may need to pass this in or get it from context)
+	workingDir := getCurrentWorkingDir() // This function needs to be implemented
+
 	for i, frame := range stacktraceOut.Locations {
-		if strings.Contains(frame.File, "my-wf/main.go") {
-			mainGoFrameIndex = i
+		if rir.isUserCodeFile(frame.File, workingDir) {
+			userCodeFrameIndex = i
 			filteredLocations = stacktraceOut.Locations[i:]
 			break
 		}
 	}
 
-	if mainGoFrameIndex == -1 {
-		log.Printf("[%s] ⚠️  No my-wf/main.go frame found in stack trace, showing all %d frames", rir.clientAddr, len(stacktraceOut.Locations))
+	if userCodeFrameIndex == -1 {
+		log.Printf("[%s] ⚠️  No user code frame found in working directory, showing all %d frames", rir.clientAddr, len(stacktraceOut.Locations))
 	} else {
-		log.Printf("[%s] ✂️  Filtered out %d frames before my-wf/main.go (original: %d, filtered: %d)", rir.clientAddr, mainGoFrameIndex, len(stacktraceOut.Locations), len(filteredLocations))
+		log.Printf("[%s] ✂️  Filtered out %d frames before user code (original: %d, filtered: %d)", rir.clientAddr, userCodeFrameIndex, len(stacktraceOut.Locations), len(filteredLocations))
 	}
 
 	log.Printf("[%s] 📚 Goroutine %v Stack Trace (%d frames):", rir.clientAddr, goroutineID, len(filteredLocations))
@@ -824,18 +809,15 @@ func (rir *responseInterceptingReader) isNotifyRunnerFunction(functionName strin
 			functionName[len(functionName)-len("adapter_go.notifyRunner"):] == "adapter_go.notifyRunner")
 }
 
-// searchAllThreadsForNotifyRunner searches all threads for adapter_go.notifyRunner goroutines
-func (rir *responseInterceptingReader) searchAllThreadsForNotifyRunner(stateOut StateOut) {
-}
-
 // isInAdapterCodeByPath checks if a file path is in adapter code
 func (rir *responseInterceptingReader) isInAdapterCodeByPath(filePath string) bool {
 	if filePath == "" {
 		return false
 	}
 
-	// Check if this is user workflow code (should NOT be considered adapter code)
-	if strings.Contains(filePath, "my-wf/") {
+	// Check if this is user code (should NOT be considered adapter code)
+	workingDir := getCurrentWorkingDir()
+	if rir.isUserCodeFile(filePath, workingDir) {
 		return false
 	}
 
@@ -1062,7 +1044,7 @@ func (rir *responseInterceptingReader) performDirectAutoStepping(jsonObj []byte,
 
 	log.Printf("%s 🎯 AUTO-STEP: Starting from adapter code: %s:%d (%s)", rir.name, startFile, startLine, startFunction)
 	log.Printf("%s 🎯 AUTO-STEP: Original command: %s, will take extra UX step: %v", rir.name, originalCommand, shouldTakeExtraStep)
-	log.Printf("%s 🎯 AUTO-STEP: Will step until reaching workflow code (my-wf/)", rir.name)
+	log.Printf("%s 🎯 AUTO-STEP: Will step until reaching user code (working directory)", rir.name)
 
 	for stepCount := 1; stepCount <= maxSteps; stepCount++ {
 		log.Printf("%s 🔄 AUTO-STEP: Step %d/%d - stepping through adapter code", rir.name, stepCount, maxSteps)
@@ -1120,11 +1102,11 @@ func (rir *responseInterceptingReader) performDirectAutoStepping(jsonObj []byte,
 			log.Printf("%s 🔄 AUTO-STEP: Step %d - still in adapter: %s:%d (%s)",
 				rir.name, stepCount, currentFile, currentLine, currentFunction)
 		} else {
-			// We've reached workflow code!
+			// We've reached user code!
 			duration := time.Since(startTime)
-			log.Printf("%s ✅ AUTO-STEP: SUCCESS! Reached workflow code after %d steps (%.2fs)",
+			log.Printf("%s ✅ AUTO-STEP: SUCCESS! Reached user code after %d steps (%.2fs)",
 				rir.name, stepCount, duration.Seconds())
-			log.Printf("%s ✅ AUTO-STEP: At workflow code: %s:%d (%s)",
+			log.Printf("%s ✅ AUTO-STEP: At user code: %s:%d (%s)",
 				rir.name, currentFile, currentLine, currentFunction)
 
 			// Take one additional step for better UX only if this was a step-over command
@@ -1225,4 +1207,64 @@ func (rir *responseInterceptingReader) performDirectAutoStepping(jsonObj []byte,
 
 	log.Printf("%s 📤 AUTO-STEP: Sending final Command response to GoLand (max steps reached)", rir.name)
 	return modifiedBuffer
+}
+
+// getCurrentWorkingDir returns the current working directory
+func getCurrentWorkingDir() string {
+	wd, err := os.Getwd()
+	if err != nil {
+		log.Printf("Failed to get working directory: %v", err)
+		return ""
+	}
+	// Convert to absolute path for consistent comparison
+	absWd, err := filepath.Abs(wd)
+	if err != nil {
+		log.Printf("Failed to get absolute path for working directory: %v", err)
+		return wd
+	}
+	return absWd
+}
+
+// isUserCodeFile checks if a file path is within the user's working directory
+// and not part of framework/adapter code
+func (rir *responseInterceptingReader) isUserCodeFile(filePath, workingDir string) bool {
+	if filePath == "" || workingDir == "" {
+		return false
+	}
+
+	// Convert file path to absolute path for consistent comparison
+	absFilePath, err := filepath.Abs(filePath)
+	if err != nil {
+		log.Printf("Failed to get absolute path for %s: %v", filePath, err)
+		// Fallback to string comparison
+		absFilePath = filePath
+	}
+
+	// Check if file is within working directory
+	isInWorkingDir := strings.HasPrefix(absFilePath, workingDir)
+
+	if !isInWorkingDir {
+		// File is outside working directory - definitely not user code
+		return false
+	}
+
+	// File is in working directory, but check if it's adapter/framework code
+	// Exclude known adapter/framework paths even if they're in working directory
+	if strings.Contains(filePath, "replayer-adapter/") ||
+		strings.Contains(filePath, "delve_wrapper/") ||
+		strings.Contains(filePath, "vendor/") ||
+		strings.Contains(filePath, ".git/") {
+		return false
+	}
+
+	// Also exclude Temporal SDK and Go runtime code (should be outside working dir anyway)
+	if strings.Contains(filePath, "go.temporal.io/sdk/") ||
+		strings.Contains(filePath, "go.temporal.io/sdk@") ||
+		strings.Contains(filePath, "/runtime/") ||
+		strings.Contains(filePath, "/reflect/") {
+		return false
+	}
+
+	log.Printf("✅ User code detected: %s (in working dir: %s)", filePath, workingDir)
+	return true
 }
