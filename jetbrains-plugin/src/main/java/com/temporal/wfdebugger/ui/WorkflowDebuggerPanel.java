@@ -753,7 +753,7 @@ public class WorkflowDebuggerPanel {
             
             // Add highlight indicator to text
             if (isHighlighted) {
-                eventInfo = "▶ " + eventInfo + " ◀ [DEBUGGING]";
+                eventInfo = "▶ " + eventInfo + " ◀";
             }
             
             textLabel.setText(eventInfo);

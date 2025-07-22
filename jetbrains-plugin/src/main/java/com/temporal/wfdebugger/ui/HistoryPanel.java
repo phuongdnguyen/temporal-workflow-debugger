@@ -351,7 +351,7 @@ public class HistoryPanel {
                 
                 // Add highlight indicator to text
                 if (isHighlighted) {
-                    displayText = "▶ " + displayText + " ◀ [DEBUGGING]";
+                    displayText = "▶ " + displayText + " ◀";
                 }
                 
                 setText(displayText);
