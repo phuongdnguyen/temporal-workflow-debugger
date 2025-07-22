@@ -1,6 +1,6 @@
 # Debugger for Temporal go
 
-<img src="docs/logo.png" alt="Temporal Go Debugger Logo" width="200">
+<img src="docs/images/logo.png" alt="Temporal Go Debugger Logo" width="200">
 
 # Introduction
 
