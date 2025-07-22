@@ -120,22 +120,8 @@ func notifyRunner(caller string, info *workflow.Info) {
 		fmt.Printf("runner notified at %+v by %s\n eventId: %d \n", time.Now(), caller, eventId)
 		if shouldStop(eventId) {
 			fmt.Printf("Pause at event %d \n", eventId)
-
-			// Send highlight request to debugger service before pausing
 			highlightCurrentEvent(eventId)
-
-			// Need to not simply raising a breakpoint here,
-			// because the stack trace for the actual workflow code will be actually 3-4 levels deeper
-			// Maybe we still need to pause the go routine to view the stack trace,
-			// but we need to step out a few levels from "fake delve" before send back the result to goland
-			buf := make([]byte, 1<<20) // 1 MB buffer
-			n := runtime.Stack(buf, true)
-			_ = string(buf[:n])
-			// println(stack)
 			runtime.Breakpoint() // Sentinel breakpoint for auto-stepping detection
-
-			// Clear highlight when debugging continues (this may not be reached if debugger stops here)
-			// clearHighlightedEvent()
 		}
 	}
 }
@@ -177,40 +163,4 @@ func highlightCurrentEvent(eventId int) {
 	}
 
 	fmt.Printf("✓ Successfully highlighted event %d in debugger UI\n", eventId)
-}
-
-// clearHighlightedEvent sends a DELETE request to clear the highlighted event
-func clearHighlightedEvent() {
-	if debuggerAddr == "" {
-		fmt.Printf("WARNING: debuggerAddr is empty, cannot send clear highlight request\n")
-		return
-	}
-
-	fmt.Printf("Sending clear highlight request to %s\n", debuggerAddr+"/current-event")
-
-	// Create client with timeout
-	client := &http.Client{Timeout: 5 * time.Second}
-	req, err := http.NewRequest("DELETE", debuggerAddr+"/current-event", nil)
-	if err != nil {
-		fmt.Printf("failed to create clear highlight request: %v\n", err)
-		return
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Printf("failed to send clear highlight request: %v\n", err)
-		return
-	}
-	defer resp.Body.Close()
-
-	// Read response body for debugging
-	responseBody, _ := io.ReadAll(resp.Body)
-	fmt.Printf("Clear highlight response status: %d, body: %s\n", resp.StatusCode, string(responseBody))
-
-	if resp.StatusCode != http.StatusOK {
-		fmt.Printf("clear highlight request failed with status: %d, response: %s\n", resp.StatusCode, string(responseBody))
-		return
-	}
-
-	fmt.Printf("✓ Successfully cleared highlighted event in debugger UI\n")
 }
