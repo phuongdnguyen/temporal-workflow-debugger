@@ -1,0 +1,5 @@
+<idea-plugin>
+    <!-- This file is loaded only when the Go plugin is present.
+         Currently we don't need any additional configuration when Go plugin is available,
+         but this file is required by the optional dependency declaration. -->
+</idea-plugin> 

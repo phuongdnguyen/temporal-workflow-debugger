@@ -1,0 +1,61 @@
+<idea-plugin>
+    <id>com.temporal.wf-debugger</id>
+    <name>Temporal Workflow Debugger</name>
+    <vendor email="support@temporal.io" url="https://temporal.io">Temporal Technologies</vendor>
+
+    <description><![CDATA[
+    A debugging plugin for Temporal workflows that allows you to:
+    - Upload workflow history JSON files
+    - Configure debugging directory
+    - Debug workflows using the tdlv debugger
+    - Set breakpoints on history events
+    
+    Compatible with IntelliJ IDEA, GoLand, and other JetBrains IDEs.
+    ]]></description>
+
+    <!-- Depend on the Go plugin – the correct plugin-id in the JetBrains
+         Marketplace repository is `org.jetbrains.plugins.go` (the code uses
+         `com.goide` as its base package name, but the plugin id is different). -->
+    <depends optional="true" config-file="go-plugin.xml">org.jetbrains.plugins.go</depends>
+    <!-- The platform module marks that we rely on core IntelliJ Platform API.
+         This avoids the warning "compatible with IntelliJ IDEA only because it doesn't define any explicit module dependencies". -->
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Tool Window -->
+        <toolWindow id="Temporal Workflow Debugger" 
+                   secondary="true" 
+                   anchor="bottom" 
+                   factoryClass="com.temporal.wfdebugger.ui.HistoryToolWindowFactory"/>
+        
+        <!-- Configuration -->
+        <applicationConfigurable 
+            parentId="tools" 
+            instance="com.temporal.wfdebugger.config.WfDebuggerConfigurable"
+            id="com.temporal.wfdebugger.config.WfDebuggerConfigurable"
+            displayName="Temporal Workflow Debugger"/>
+            
+        <!-- Debug Configuration Type -->
+        <configurationType implementation="com.temporal.wfdebugger.debug.WfDebugConfigurationType"/>
+        
+        <!-- Run Configuration Producer -->
+        <runConfigurationProducer implementation="com.temporal.wfdebugger.debug.WfDebugConfigurationProducer"/>
+        
+        <!-- Program Runner -->
+        <programRunner implementation="com.temporal.wfdebugger.debug.WfDebugProgramRunner"/>
+        
+        <!-- Notification Group -->
+        <notificationGroup id="Temporal Workflow Debugger" displayType="BALLOON" isLogByDefault="true"/>
+    </extensions>
+
+    <actions>
+        <!-- Main action to start workflow debugging -->
+        <action id="com.temporal.wfdebugger.StartWfDebug"
+                class="com.temporal.wfdebugger.actions.StartWfDebugAction"
+                text="Start Temporal Workflow Debug"
+                description="Start debugging with Temporal Workflow Debugger">
+            <add-to-group group-id="DebugMainMenu" anchor="first"/>
+        </action>
+    </actions>
+
+</idea-plugin>

@@ -1,0 +1,8 @@
+.idea/
+__debug_bin**
+my-wf/__tdlv_debug_bin*
+build
+delve.build
+stderr.txt
+stdout.txt
+tdlv.build

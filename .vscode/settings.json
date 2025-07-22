@@ -1,0 +1,20 @@
+{
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "java.import.gradle.enabled": true,
+    "java.import.gradle.wrapper.enabled": true,
+    "java.import.gradle.version": null,
+    "java.import.gradle.home": null,
+    "java.import.gradle.java.home": null,
+    "java.import.gradle.offline.enabled": false,
+    "java.import.gradle.arguments": null,
+    "java.import.gradle.jvmArguments": null,
+    "java.import.gradle.user.home": null,
+    "java.compile.nullAnalysis.mode": "automatic",
+    "java.configuration.runtimes": [],
+    "java.project.sourcePaths": [
+        "jetbrains-plugin/src/main/java"
+    ],
+    "java.project.referencedLibraries": [
+        "jetbrains-plugin/build/libs/**/*.jar"
+    ]
+} 
