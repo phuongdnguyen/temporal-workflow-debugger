@@ -122,6 +122,11 @@ public final class WfDebuggerService implements PersistentStateComponent<WfDebug
         // Update state with loaded data
         state.setLoadedEvents(events);
         
+        // Sync breakpoint enabled flags with service state
+        for (HistoryEvent event : events) {
+            event.setBreakpointEnabled(state.hasBreakpoint(event.getEventId()));
+        }
+        
         // Update the history server with raw bytes
         // Note: /history endpoint now returns raw bytes directly (VSCode compatible)
         // instead of JSON-wrapped response

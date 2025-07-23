@@ -583,8 +583,8 @@ public class WorkflowDebuggerPanel {
     }
     
     private void toggleBreakpoint(HistoryEventListItem item) {
-        boolean wasEnabled = debuggerService.toggleBreakpoint(item.getEvent().getEventId());
-        item.setBreakpointEnabled(!wasEnabled);
+        boolean isNowEnabled = debuggerService.toggleBreakpoint(item.getEvent().getEventId());
+        item.setBreakpointEnabled(isNowEnabled);
         
         // Refresh the list to update the display
         eventsList.repaint();
@@ -594,7 +594,7 @@ public class WorkflowDebuggerPanel {
         List<HistoryEvent> events = debuggerService.getState().getLoadedEvents();
         historyStatusLabel.setText("Loaded " + events.size() + " events, " + breakpointCount + " breakpoints set");
         
-        System.out.println("Breakpoint " + (!wasEnabled ? "enabled" : "disabled") + " for event ID: " + item.getEvent().getEventId() + " - " + item.getEvent().getEventType());
+        System.out.println("Breakpoint " + (isNowEnabled ? "enabled" : "disabled") + " for event ID: " + item.getEvent().getEventId() + " - " + item.getEvent().getEventType());
     }
     
     private void clearAllBreakpoints() {
