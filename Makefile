@@ -6,3 +6,6 @@ structured:
 
 build:
 	cd custom-debugger && go build -o ../tdlv.build
+
+run-ide:
+	cd jetbrains-plugin &&  ./gradlew runIde

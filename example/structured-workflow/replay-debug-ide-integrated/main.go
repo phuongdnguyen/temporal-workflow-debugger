@@ -3,16 +3,15 @@ package main
 import (
 	"go.temporal.io/sdk/worker"
 
+	"example/pkg/workflows"
 	"replayer_adapter"
 )
 
 func main() {
-	replayer_adapter.SetBreakpoints([]int{3, 9, 15})
-	replayer_adapter.SetReplayMode(replayer_adapter.ReplayModeStandalone)
+	replayer_adapter.SetReplayMode(replayer_adapter.ReplayModeIde)
 	err := replayer_adapter.Replay(replayer_adapter.ReplayOptions{
 		WorkerReplayOptions: worker.WorkflowReplayerOptions{DisableDeadlockDetection: true},
-		HistoryFilePath:     "/Users/duyphuongnguyen/GolandProjects/temporal-goland-plugin/example/simple-workflow/history.json",
-	}, SimpleWorkflow)
+	}, workflows.ExampleWorkflow)
 	if err != nil {
 		panic(err)
 	}

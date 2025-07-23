@@ -1,8 +1,6 @@
-module replay_debug
+module replay_debug_ide_integrated
 
-go 1.23.0
-
-toolchain go1.23.11
+go 1.23.11
 
 replace replayer_adapter => /Users/duyphuongnguyen/GolandProjects/temporal-goland-plugin/replayer-adapter
 

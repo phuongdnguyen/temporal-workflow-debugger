@@ -11,31 +11,40 @@ import (
 	"runtime"
 	"time"
 
-	"go.temporal.io/api/history/v1"
+	historypb "go.temporal.io/api/history/v1"
+	"go.temporal.io/api/temporalproto"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
 )
 
+// ReplayMode is the mode of the replay, either ReplayModeStandalone or ReplayModeIde
+// ReplayModeStandalone: replay with history file
+// ReplayModeIde: replay with debugger UI
 type ReplayMode int
 
 const (
-	Mode_Standalone ReplayMode = iota
-	Mode_IDE
+	ReplayModeStandalone ReplayMode = iota
+	ReplayModeIde
 )
+
+func (m ReplayMode) String() string {
+	switch m {
+	case ReplayModeStandalone:
+		return "standalone"
+	case ReplayModeIde:
+		return "ide"
+	default:
+		return "unknown"
+	}
+}
 
 var (
 	mode ReplayMode
 	// breakpoints only used in standalone mode
-	breakpoints = make(map[int]struct{}, 0)
+	breakpoints = make(map[int]struct{})
 )
 
 type ReplayOptions struct {
-	// Mode is the mode of the replay, either Mode_Standalone or Mode_IDE
-	// Mode_Standalone: replay with history file
-	// Mode_IDE: replay with debugger UI
-	Mode                ReplayMode
 	WorkerReplayOptions worker.WorkflowReplayerOptions
 	// HistoryFilePath only used in Standalone mode, absolute path to the history file
 	HistoryFilePath string
@@ -48,8 +57,13 @@ func SetBreakpoints(eventIds []int) {
 	}
 }
 
+func SetReplayMode(m ReplayMode) {
+	mode = m
+}
+
 func Replay(opts ReplayOptions, wf any) error {
-	if opts.Mode == Mode_Standalone {
+	fmt.Printf("Replaying in mode %s", mode)
+	if mode == ReplayModeStandalone {
 		return replayWithJSONFile(opts.WorkerReplayOptions, wf, opts.HistoryFilePath)
 	}
 	hist, err := getHistoryFromIDE()
@@ -67,14 +81,14 @@ var (
 
 func isBreakpoint(id int) bool {
 	switch mode {
-	case Mode_Standalone:
+	case ReplayModeStandalone:
 		fmt.Printf("Standalone checking breakpoints: %v\n", breakpoints)
 		for breakpointID := range breakpoints {
 			if breakpointID == id {
 				return true
 			}
 		}
-	case Mode_IDE:
+	case ReplayModeIde:
 		if debuggerAddr == "" {
 			return false
 		}
@@ -109,7 +123,7 @@ func isBreakpoint(id int) bool {
 	return false
 }
 
-func replayWithHistory(opts worker.WorkflowReplayerOptions, hist *history.History, wf any) error {
+func replayWithHistory(opts worker.WorkflowReplayerOptions, hist *historypb.History, wf any) error {
 	opts.Interceptors = append(opts.Interceptors, &runnerWorkerInterceptor{})
 	replayer, err := worker.NewWorkflowReplayerWithOptions(opts)
 	if err != nil {
@@ -147,7 +161,7 @@ func raiseSentinelBreakpoint(caller string, info *workflow.Info) {
 		fmt.Printf("runner notified at %+v by %s\n eventId: %d \n", time.Now(), caller, eventId)
 		if isBreakpoint(eventId) {
 			fmt.Printf("Pause at event %d \n", eventId)
-			if mode == Mode_IDE {
+			if mode == ReplayModeIde {
 				highlightCurrentEventInIDE(eventId)
 			}
 			runtime.Breakpoint() // Sentinel breakpoint for auto-stepping detection
@@ -194,7 +208,7 @@ func highlightCurrentEventInIDE(eventId int) {
 	fmt.Printf("✓ Successfully highlighted event %d in debugger UI\n", eventId)
 }
 
-func getHistoryFromIDE() (*history.History, error) {
+func getHistoryFromIDE() (*historypb.History, error) {
 	port := os.Getenv("WFDBG_HISTORY_PORT")
 	if port == "" {
 		port = "54578"
@@ -213,14 +227,35 @@ func getHistoryFromIDE() (*history.History, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not read history: %v", err)
 	}
-	var hist history.History
-	if err := proto.Unmarshal(body, &hist); err != nil {
-		// Try JSON
-		if jsonErr := protojson.Unmarshal(body, &hist); jsonErr != nil {
-			return nil, fmt.Errorf("cannot parse history: binaryErr=%v jsonErr=%v", err, jsonErr)
-		}
+	hist, err := extractHistoryFromJsonBytes(body, 0)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse history: %v", err)
 	}
 	// Store runner address for breakpoint checks
 	debuggerAddr = runnerAddr
-	return &hist, nil
+	return hist, nil
+}
+
+func extractHistoryFromJsonBytes(body []byte, lastEventID int64) (hist *historypb.History, err error) {
+	opts := temporalproto.CustomJSONUnmarshalOptions{
+		DiscardUnknown: true,
+	}
+
+	hist = &historypb.History{}
+	if err := opts.Unmarshal(body, hist); err != nil {
+		return nil, err
+	}
+
+	// If there is a last event ID, slice the rest off
+	if lastEventID > 0 {
+		for i, event := range hist.Events {
+			if event.EventId == lastEventID {
+				// Inclusive
+				hist.Events = hist.Events[:i+1]
+				break
+			}
+		}
+	}
+
+	return hist, err
 }
