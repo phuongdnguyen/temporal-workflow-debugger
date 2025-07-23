@@ -222,7 +222,7 @@ public class WorkflowDebuggerPanel {
         // Create toolbar
         JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT));
         
-        backToUploadButton = new JButton("New File", AllIcons.Actions.Upload);
+        backToUploadButton = new JButton("Upload Workflow History", AllIcons.Actions.Upload);
         backToUploadButton.addActionListener(e -> {
             // Open file chooser dialog directly without switching panels
             FileChooserDescriptor descriptor = FileChooserDescriptorFactory.createSingleFileDescriptor("json");
@@ -266,9 +266,6 @@ public class WorkflowDebuggerPanel {
             }
         });
         
-        refreshButton = new JButton("Refresh", AllIcons.Actions.Refresh);
-        refreshButton.addActionListener(e -> refreshEventsList());
-        
         clearAllBreakpointsButton = new JButton("Clear All Breakpoints", AllIcons.Actions.GC);
         clearAllBreakpointsButton.addActionListener(e -> clearAllBreakpoints());
 
@@ -277,7 +274,6 @@ public class WorkflowDebuggerPanel {
         startDebugButton.addActionListener(e -> triggerStartDebug());
         
         toolbar.add(backToUploadButton);
-        toolbar.add(refreshButton);
         toolbar.add(clearAllBreakpointsButton);
         toolbar.add(startDebugButton);
         
