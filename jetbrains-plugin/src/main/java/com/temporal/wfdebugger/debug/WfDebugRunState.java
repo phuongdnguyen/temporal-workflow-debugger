@@ -191,22 +191,34 @@ public class WfDebugRunState extends CommandLineState {
             showTdlvRunningNotification(port);
             
             // Wait for tdlv to be fully ready, then auto-connect to GoLand
+            Project project = getEnvironment().getProject();
             ApplicationManager.getApplication().executeOnPooledThread(() -> {
                 try {
                     LOG.info("Waiting for tdlv to initialize...");
                     
                     // Simple delay to let tdlv start up
-                    Thread.sleep(3000);
+                    Thread.sleep(1000);
                     
                     LOG.info("Attempting auto-connection to GoLand on port " + port);
-                    
+
                     ApplicationManager.getApplication().invokeLater(() -> {
                         try {
                             LOG.info("Starting Go Remote debug session to attach to GoLand...");
-                            autoConnectToGoLand(port);
+                            autoConnectToGoLand(project, port);
                         } catch (Exception e) {
                             LOG.error("Failed to auto-connect to tdlv in GoLand", e);
                             showErrorNotification(port, "Auto-connection to GoLand failed: " + e.getMessage());
+                        }
+                    });
+                    
+                    // Wait to verify connection
+                    Thread.sleep(3000);
+                    
+                    ApplicationManager.getApplication().invokeLater(() -> {
+                        try {
+                            focusDebuggingTab(project, port);
+                        } catch (Exception e) {
+                            LOG.warn("Failed to auto-focus debugging tab", e);
                         }
                     });
                 } catch (Exception e) {
@@ -436,8 +448,7 @@ public class WfDebugRunState extends CommandLineState {
     /**
      * Automatically create and start a Go Remote debug configuration to connect to tdlv and attach to GoLand
      */
-    private void autoConnectToGoLand(int port) throws ExecutionException {
-        Project project = getEnvironment().getProject();
+    private void autoConnectToGoLand(Project project, int port) throws ExecutionException {
         RunManager runManager = RunManager.getInstance(project);
         
         // Retry logic for connecting to GoLand

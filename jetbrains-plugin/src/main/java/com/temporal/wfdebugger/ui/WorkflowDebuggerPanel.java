@@ -31,6 +31,9 @@ import java.awt.FontMetrics;
 import java.awt.BasicStroke;
 import java.awt.GradientPaint;
 import java.awt.AlphaComposite;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 
 /**
  * Main panel for the Temporal Workflow Debugger tool window.
@@ -439,9 +442,13 @@ public class WorkflowDebuggerPanel {
         // Basic information
         tooltip.append("<b>Event ID:</b> ").append(event.getEventId()).append("<br>");
         tooltip.append("<b>Type:</b> ").append(event.getEventType()).append("<br>");
-        
+
         if (event.getEventTime() != null) {
-            tooltip.append("<b>Time:</b> ").append(event.getEventTime()).append("<br>");
+            Instant instant = event.getEventTimeAsInstant();
+            String formattedTime = (instant != null) ? DateTimeFormatter.ofPattern("MMMM d, yyyy h:mm:ss a z")
+                .withZone(ZoneId.of("UTC"))
+                .format(instant) : event.getEventTime();
+            tooltip.append("<b>Time:</b> ").append(formattedTime).append("<br>");
         }
         
         if (event.getVersion() > 0) {
@@ -480,6 +487,8 @@ public class WorkflowDebuggerPanel {
             tooltip.append("Activity");
         } else if (event.isTimerEvent()) {
             tooltip.append("Timer");
+        } else if (event.getEventType().toLowerCase().contains("workflowtask")) {
+            tooltip.append("Workflow Task");
         } else {
             tooltip.append("Other");
         }
