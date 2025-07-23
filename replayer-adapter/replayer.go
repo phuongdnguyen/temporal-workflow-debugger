@@ -18,38 +18,46 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func Replay(opts worker.WorkflowReplayerOptions, wf any) error {
-	port := os.Getenv("WFDBG_HISTORY_PORT")
-	if port == "" {
-		port = "54578"
+type ReplayMode int
+
+const (
+	Mode_Standalone ReplayMode = iota
+	Mode_IDE
+)
+
+var (
+	mode ReplayMode
+	// breakpoints only used in standalone mode
+	breakpoints = make(map[int]struct{}, 0)
+)
+
+type ReplayOptions struct {
+	// Mode is the mode of the replay, either Mode_Standalone or Mode_IDE
+	// Mode_Standalone: replay with history file
+	// Mode_IDE: replay with debugger UI
+	Mode                ReplayMode
+	WorkerReplayOptions worker.WorkflowReplayerOptions
+	// HistoryFilePath only used in Standalone mode, absolute path to the history file
+	HistoryFilePath string
+}
+
+// SetBreakpoints only used in Standalone mode
+func SetBreakpoints(eventIds []int) {
+	for _, eventId := range eventIds {
+		breakpoints[eventId] = struct{}{}
 	}
-	runnerAddr := "http://127.0.0.1:" + port
-	client := http.DefaultClient
-	resp, err := client.Get(runnerAddr + "/history")
+}
+
+func Replay(opts ReplayOptions, wf any) error {
+	if opts.Mode == Mode_Standalone {
+		return replayWithJSONFile(opts.WorkerReplayOptions, wf, opts.HistoryFilePath)
+	}
+	hist, err := getHistoryFromIDE()
 	if err != nil {
 		return fmt.Errorf("could not get history: %v", err)
 	}
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("could not get history: %v", resp.StatusCode)
-	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("could not read history: %v", err)
-	}
-	var hist history.History
-	if err := proto.Unmarshal(body, &hist); err != nil {
-		// Try JSON
-		if jsonErr := protojson.Unmarshal(body, &hist); jsonErr != nil {
-			return fmt.Errorf("cannot parse history: binaryErr=%v jsonErr=%v", err, jsonErr)
-		}
-	}
-
-	// Store runner address for breakpoint checks
-	debuggerAddr = runnerAddr
-
 	// replay with history
-	return replayWithHistory(opts, &hist, wf)
+	return replayWithHistory(opts.WorkerReplayOptions, hist, wf)
 }
 
 var (
@@ -58,32 +66,45 @@ var (
 )
 
 func isBreakpoint(id int) bool {
-	if debuggerAddr == "" {
-		return false
-	}
-
-	// Fetch current breakpoints from debugger
-	client := http.DefaultClient
-	resp, err := client.Get(debuggerAddr + "/breakpoints")
-	if err != nil {
-		fmt.Printf("could not get breakpoints: %v\n", err)
-		return false
-	}
-	defer resp.Body.Close()
-
-	var payload struct {
-		Breakpoints []int `json:"breakpoints"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		fmt.Printf("could not decode breakpoints: %v\n", err)
-		return false
-	}
-
-	// Check if current event ID is in breakpoints
-	for _, breakpointID := range payload.Breakpoints {
-		if breakpointID == id {
-			return true
+	switch mode {
+	case Mode_Standalone:
+		fmt.Printf("Standalone checking breakpoints: %v\n", breakpoints)
+		for breakpointID := range breakpoints {
+			if breakpointID == id {
+				return true
+			}
 		}
+	case Mode_IDE:
+		if debuggerAddr == "" {
+			return false
+		}
+
+		// Fetch current breakpoints from debugger
+		client := http.DefaultClient
+		resp, err := client.Get(debuggerAddr + "/breakpoints")
+		if err != nil {
+			fmt.Printf("could not get breakpoints: %v\n", err)
+			return false
+		}
+		defer resp.Body.Close()
+
+		var payload struct {
+			Breakpoints []int `json:"breakpoints"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+			fmt.Printf("could not decode breakpoints: %v\n", err)
+			return false
+		}
+
+		// Check if current event ID is in breakpoints
+		for _, breakpointID := range payload.Breakpoints {
+			if breakpointID == id {
+				return true
+			}
+		}
+		return false
+	default:
+		return false
 	}
 	return false
 }
@@ -99,11 +120,18 @@ func replayWithHistory(opts worker.WorkflowReplayerOptions, hist *history.Histor
 	return replayer.ReplayWorkflowHistory(logger, hist)
 }
 
-func shouldStop(eventID int) bool {
-	return isBreakpoint(eventID)
+func replayWithJSONFile(opts worker.WorkflowReplayerOptions, wf any, jsonFileName string) error {
+	opts.Interceptors = append(opts.Interceptors, &runnerWorkerInterceptor{})
+	replayer, err := worker.NewWorkflowReplayerWithOptions(opts)
+	if err != nil {
+		return fmt.Errorf("create workflow replayer failed: %w", err)
+	}
+	logger := slog.Default()
+	replayer.RegisterWorkflow(wf)
+	return replayer.ReplayWorkflowHistoryFromJSONFile(logger, jsonFileName)
 }
 
-func notifyRunner(caller string, info *workflow.Info) {
+func raiseSentinelBreakpoint(caller string, info *workflow.Info) {
 	// activity interceptors
 	if info == nil {
 		// should let user decide to stop on activity or not
@@ -116,18 +144,19 @@ func notifyRunner(caller string, info *workflow.Info) {
 			return
 		}
 		lastNotifiedStartEvent = eventId
-		// body := map[string]int{"eventId": eventId}
 		fmt.Printf("runner notified at %+v by %s\n eventId: %d \n", time.Now(), caller, eventId)
-		if shouldStop(eventId) {
+		if isBreakpoint(eventId) {
 			fmt.Printf("Pause at event %d \n", eventId)
-			highlightCurrentEvent(eventId)
+			if mode == Mode_IDE {
+				highlightCurrentEventInIDE(eventId)
+			}
 			runtime.Breakpoint() // Sentinel breakpoint for auto-stepping detection
 		}
 	}
 }
 
-// highlightCurrentEvent sends a POST request to highlight the current event being debugged
-func highlightCurrentEvent(eventId int) {
+// highlightCurrentEventInIDE sends a POST request to highlight the current event being debugged
+func highlightCurrentEventInIDE(eventId int) {
 	if debuggerAddr == "" {
 		fmt.Printf("WARNING: debuggerAddr is empty, cannot send highlight request\n")
 		return
@@ -163,4 +192,35 @@ func highlightCurrentEvent(eventId int) {
 	}
 
 	fmt.Printf("✓ Successfully highlighted event %d in debugger UI\n", eventId)
+}
+
+func getHistoryFromIDE() (*history.History, error) {
+	port := os.Getenv("WFDBG_HISTORY_PORT")
+	if port == "" {
+		port = "54578"
+	}
+	runnerAddr := "http://127.0.0.1:" + port
+	client := http.DefaultClient
+	resp, err := client.Get(runnerAddr + "/history")
+	if err != nil {
+		return nil, fmt.Errorf("could not get history: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("could not get history: %v", resp.StatusCode)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("could not read history: %v", err)
+	}
+	var hist history.History
+	if err := proto.Unmarshal(body, &hist); err != nil {
+		// Try JSON
+		if jsonErr := protojson.Unmarshal(body, &hist); jsonErr != nil {
+			return nil, fmt.Errorf("cannot parse history: binaryErr=%v jsonErr=%v", err, jsonErr)
+		}
+	}
+	// Store runner address for breakpoint checks
+	debuggerAddr = runnerAddr
+	return &hist, nil
 }

@@ -34,7 +34,7 @@ func SimpleWorkflow(ctx workflow.Context, name string) (string, error) {
 		}
 
 		// Sleep a bit between iterations to create timer events
-		if err := workflow.Sleep(ctx, 2*time.Second); err != nil {
+		if err := zzz(ctx); err != nil {
 			return "", err
 		}
 	}

@@ -20,27 +20,27 @@ func (ii *runnerWorkflowInboundInterceptor) Init(outbound interceptor.WorkflowOu
 
 func (ii *runnerWorkflowInboundInterceptor) ExecuteWorkflow(ctx workflow.Context,
 	in *interceptor.ExecuteWorkflowInput) (interface{}, error) {
-	notifyRunner("ExecuteWorkflow", workflow.GetInfo(ctx))
+	raiseSentinelBreakpoint("ExecuteWorkflow", workflow.GetInfo(ctx))
 	return ii.Next.ExecuteWorkflow(ctx, in)
 }
 
 func (ii *runnerWorkflowInboundInterceptor) HandleSignal(ctx workflow.Context, in *interceptor.HandleSignalInput) error {
-	notifyRunner("HandleSignal", workflow.GetInfo(ctx))
+	raiseSentinelBreakpoint("HandleSignal", workflow.GetInfo(ctx))
 	return ii.Next.HandleSignal(ctx, in)
 }
 
 func (ii *runnerWorkflowInboundInterceptor) HandleQuery(ctx workflow.Context, in *interceptor.HandleQueryInput) (interface{}, error) {
-	notifyRunner("HandleQuery", workflow.GetInfo(ctx))
+	raiseSentinelBreakpoint("HandleQuery", workflow.GetInfo(ctx))
 	return ii.Next.HandleQuery(ctx, in)
 }
 
 func (ii *runnerWorkflowInboundInterceptor) ValidateUpdate(ctx workflow.Context, in *interceptor.UpdateInput) error {
-	notifyRunner("ValidateUpdate", workflow.GetInfo(ctx))
+	raiseSentinelBreakpoint("ValidateUpdate", workflow.GetInfo(ctx))
 	return ii.Next.ValidateUpdate(ctx, in)
 }
 
 func (ii *runnerWorkflowInboundInterceptor) ExecuteUpdate(ctx workflow.Context, in *interceptor.UpdateInput) (interface{}, error) {
-	notifyRunner("ExecuteUpdate", workflow.GetInfo(ctx))
+	raiseSentinelBreakpoint("ExecuteUpdate", workflow.GetInfo(ctx))
 	return ii.Next.ExecuteUpdate(ctx, in)
 }
 
@@ -50,7 +50,7 @@ type runnerInboundActivityIntercetor struct {
 
 func (i *runnerInboundActivityIntercetor) ExecuteActivity(ctx context.Context,
 	in *interceptor.ExecuteActivityInput) (interface{}, error) {
-	notifyRunner("ExecuteActivity", nil)
+	raiseSentinelBreakpoint("ExecuteActivity", nil)
 	return i.ActivityInboundInterceptorBase.ExecuteActivity(ctx, in)
 }
 

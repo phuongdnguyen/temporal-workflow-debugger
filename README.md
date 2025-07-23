@@ -3,7 +3,7 @@
 <img src="docs/images/logo.png" alt="Temporal Go Debugger Logo" width="200">
 
 # Introduction
-
+Œ
 The **Temporal Go Workflow Debugger** is a comprehensive debugging solution that enables step-through debugging of [Temporal](https://github.com/temporalio/temporal) workflows in Go. Unlike traditional debuggers that struggle with Temporal's distributed execution model, this debugger provides a seamless development experience by allowing you to set breakpoints, inspect variables, and trace execution flow within your workflow code.
 
 ## 🚀 Why This Debugger?

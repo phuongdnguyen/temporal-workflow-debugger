@@ -1,15 +1,18 @@
-module my_wf
+module replay_debug
 
 go 1.23.0
 
 toolchain go1.23.11
 
+replace replayer_adapter => /Users/duyphuongnguyen/GolandProjects/temporal-goland-plugin/replayer-adapter
+
+replace example => ../workflow-code/
+
 require (
+	example v0.0.0-00010101000000-000000000000
 	go.temporal.io/sdk v1.35.0
 	replayer_adapter v0.0.0-00010101000000-000000000000
 )
-
-replace replayer_adapter => /Users/duyphuongnguyen/GolandProjects/temporal-goland-plugin/replayer-adapter
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect

@@ -80,8 +80,9 @@ func main() {
 
 	// Create RPC2 server with headless mode (supports both JSON-RPC and DAP)
 	server := rpccommon.NewServer(&service.Config{
-		Listener:    l,
-		Debugger:    debuggerConfig,
+		Listener: l,
+		Debugger: debuggerConfig,
+		// TODO: figure out why IDE need to reconnect to delve
 		AcceptMulti: true, // Allow multiple connections and reconnections
 		APIVersion:  2,
 		ProcessArgs: []string{debugname},
