@@ -17,7 +17,6 @@ import com.intellij.util.ui.UIUtil;
 import com.intellij.ui.JBColor;
 import com.temporal.wfdebugger.model.HistoryEvent;
 import com.temporal.wfdebugger.service.WfDebuggerService;
-
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
@@ -28,6 +27,10 @@ import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.awt.FontMetrics;
+import java.awt.BasicStroke;
+import java.awt.GradientPaint;
+import java.awt.AlphaComposite;
 
 /**
  * Main panel for the Temporal Workflow Debugger tool window.
@@ -275,6 +278,24 @@ public class WorkflowDebuggerPanel {
         toolbar.add(clearAllBreakpointsButton);
         toolbar.add(startDebugButton);
         
+        // Add runner directory configuration
+        JLabel runnerLabel = new JLabel("Replaying Workflow In:");
+        JTextField runnerDirField = new JTextField(debuggerService.getDebugDirectory(), 20);
+        runnerDirField.setEditable(false);
+        JButton browseButton = new JButton("Browse");
+        browseButton.addActionListener(e -> {
+            FileChooserDescriptor descriptor = FileChooserDescriptorFactory.createSingleFolderDescriptor();
+            descriptor.setTitle("Select Workflow Entrypoint Directory");
+            VirtualFile dir = FileChooser.chooseFile(descriptor, project, null);
+            if (dir != null) {
+                debuggerService.setDebugDirectory(dir.getPath());
+                runnerDirField.setText(dir.getPath());
+            }
+        });
+        toolbar.add(runnerLabel);
+        toolbar.add(runnerDirField);
+        toolbar.add(browseButton);
+        
         // Status area
         historyStatusLabel = new JBLabel("No events loaded");
         historyStatusLabel.setBorder(new EmptyBorder(5, 10, 5, 10));
@@ -289,7 +310,7 @@ public class WorkflowDebuggerPanel {
     private boolean isHoveringInGutter = false;
     
     // Gutter configuration
-    private static final int GUTTER_WIDTH = 20;
+    private static final int GUTTER_WIDTH = 70;
     private static final int ICON_SIZE = 12;
     private static final int ICON_MARGIN = 4;
     
@@ -302,7 +323,8 @@ public class WorkflowDebuggerPanel {
             Rectangle cellBounds = eventsList.getCellBounds(index, index);
             if (cellBounds != null) {
                 // Calculate the center and radius of the breakpoint icon
-                int centerX = GUTTER_WIDTH / 2;
+                int iconPadding = 4;
+                int centerX = cellBounds.x + GUTTER_WIDTH - (ICON_SIZE / 2) - iconPadding;
                 int centerY = cellBounds.y + cellBounds.height / 2;
                 int radius = ICON_SIZE / 2;
                 
@@ -346,7 +368,8 @@ public class WorkflowDebuggerPanel {
             Rectangle cellBounds = eventsList.getCellBounds(index, index);
             if (cellBounds != null) {
                 // Calculate the center and radius of the breakpoint icon
-                int centerX = GUTTER_WIDTH / 2;
+                int iconPadding = 4;
+                int centerX = cellBounds.x + GUTTER_WIDTH - (ICON_SIZE / 2) - iconPadding;
                 int centerY = cellBounds.y + cellBounds.height / 2;
                 int radius = ICON_SIZE / 2;
                 
@@ -738,9 +761,8 @@ public class WorkflowDebuggerPanel {
             boolean hasBreakpoint = value.isBreakpointEnabled();
             boolean isHovered = (index == hoveredRowIndex && isHoveringInGutter);
             
-            // Format the text with event ID first
-            String eventInfo = String.format("ID: %d - %s", 
-                event.getEventId(), event.getHumanReadableEventType());
+            // Format the text without event ID
+            String eventInfo = event.getHumanReadableEventType();
             
             // Add event type information if available
             if (event.isActivityEvent()) {
@@ -757,6 +779,12 @@ public class WorkflowDebuggerPanel {
             }
             
             textLabel.setText(eventInfo);
+            
+            // Store event ID for painting
+            putClientProperty("eventIdText", String.format("%d", event.getEventId()));
+            
+            // Adjust text label padding
+            textLabel.setBorder(new EmptyBorder(2, GUTTER_WIDTH + 8, 2, 5));
             
             // Tooltip is now handled by the JList override
             
@@ -815,36 +843,32 @@ public class WorkflowDebuggerPanel {
             Boolean hasBreakpoint = (Boolean) getClientProperty("hasBreakpoint");
             Boolean isHovered = (Boolean) getClientProperty("isHovered");
             
-            if (hasBreakpoint != null && hasBreakpoint) {
-                // Draw solid red breakpoint circle
-                drawBreakpointIcon(g2d, BREAKPOINT_COLOR, true);
-            } else if (isHovered != null && isHovered) {
-                // Draw faded red circle on hover
-                drawBreakpointIcon(g2d, HOVER_COLOR, false);
+            // Draw event ID
+            String idText = (String) getClientProperty("eventIdText");
+            if (idText != null) {
+                g2d.setColor(UIUtil.getListForeground());
+                FontMetrics fm = g2d.getFontMetrics();
+                int textY = (getHeight() - fm.getHeight()) / 2 + fm.getAscent();
+                int idAreaWidth = 40;
+                int textX = idAreaWidth - fm.stringWidth(idText) - 4;
+                g2d.drawString(idText, textX, textY);
+            }
+
+            // Always draw breakpoint circle
+            Color circleColor = isHovered ? HOVER_COLOR : JBColor.namedColor("Debugger.emptyBreakpoint", new JBColor(0x808080, 0x808080));
+            g2d.setColor(circleColor);
+            g2d.setStroke(new BasicStroke(1.5f));
+            int iconPadding = 4;
+            int centerX = GUTTER_WIDTH - (ICON_SIZE / 2) - iconPadding;
+            int centerY = getHeight() / 2;
+            int radius = ICON_SIZE / 2;
+            g2d.drawOval(centerX - radius, centerY - radius, ICON_SIZE, ICON_SIZE);
+            if (hasBreakpoint) {
+                g2d.setColor(BREAKPOINT_COLOR);
+                g2d.fillOval(centerX - radius, centerY - radius, ICON_SIZE, ICON_SIZE);
             }
             
             g2d.dispose();
-        }
-        
-        private void drawBreakpointIcon(Graphics2D g2d, Color color, boolean filled) {
-            int centerX = GUTTER_WIDTH / 2;
-            int centerY = getHeight() / 2;
-            int radius = ICON_SIZE / 2;
-            
-            g2d.setColor(color);
-            
-            if (filled) {
-                // Draw filled circle for active breakpoint
-                g2d.fillOval(centerX - radius, centerY - radius, ICON_SIZE, ICON_SIZE);
-                
-                // Add a subtle border
-                g2d.setColor(color.darker());
-                g2d.drawOval(centerX - radius, centerY - radius, ICON_SIZE, ICON_SIZE);
-            } else {
-                // Draw hollow circle for hover state
-                g2d.setStroke(new BasicStroke(2.0f));
-                g2d.drawOval(centerX - radius, centerY - radius, ICON_SIZE, ICON_SIZE);
-            }
         }
         
 
