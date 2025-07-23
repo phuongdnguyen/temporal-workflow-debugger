@@ -29,7 +29,7 @@ This guide provides detailed technical information for developers who want to un
    cd temporal-goland-plugin
    
    # Build delve wrapper
-   cd delve_wrapper
+   cd custom-debugger
    go build -o delve-wrapper .
    
    # Build plugin
@@ -40,7 +40,7 @@ This guide provides detailed technical information for developers who want to un
 2. **Run in development mode**:
    ```bash
    # Terminal 1: Start delve wrapper with debug logging
-   cd delve_wrapper
+   cd custom-debugger
    go run main.go -verbose
    
    # Terminal 2: Start test workflow with delve
@@ -51,7 +51,7 @@ This guide provides detailed technical information for developers who want to un
 3. **IDE setup for development**:
    - Import the project in GoLand/IntelliJ IDEA
    - Configure remote debugger pointing to `:2345`
-   - Set breakpoints in `delve_wrapper/main.go`
+   - Set breakpoints in `custom-debugger/main.go`
 
 ## 🏗️ Architecture Deep Dive
 
@@ -386,7 +386,7 @@ func isInAdapterCodeByPath(filePath string) bool {
 Test the core algorithms in isolation:
 
 ```bash
-cd delve_wrapper
+cd custom-debugger
 go test ./... -v
 ```
 
@@ -449,7 +449,7 @@ dlv --accept-multiclient --continue --log --headless --listen=127.0.0.1:60000 de
 ### Code Organization
 
 ```
-delve_wrapper/
+custom-debugger/
 ├── main.go                 # Main proxy entry point
 ├── request_interceptor.go  # Request processing
 ├── response_interceptor.go # Response processing  
@@ -566,7 +566,7 @@ log.Printf("Frame mapping: %+v", rir.frameMapping)
 #### Enable Verbose Logging
 
 ```bash
-cd delve_wrapper
+cd custom-debugger
 go run main.go -verbose -log-requests -log-responses
 ```
 
@@ -592,7 +592,7 @@ For debugging the debugger itself:
     "type": "go",
     "request": "launch",
     "mode": "debug",
-    "program": "${workspaceFolder}/delve_wrapper",
+    "program": "${workspaceFolder}/custom-debugger",
     "args": ["-verbose"]
 }
 ```

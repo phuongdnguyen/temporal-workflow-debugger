@@ -1251,7 +1251,7 @@ func (rir *responseInterceptingReader) isUserCodeFile(filePath, workingDir strin
 	// File is in working directory, but check if it's adapter/framework code
 	// Exclude known adapter/framework paths even if they're in working directory
 	if strings.Contains(filePath, "replayer-adapter/") ||
-		strings.Contains(filePath, "delve_wrapper/") ||
+		strings.Contains(filePath, "custom-debugger/") ||
 		strings.Contains(filePath, "vendor/") ||
 		strings.Contains(filePath, ".git/") {
 		return false

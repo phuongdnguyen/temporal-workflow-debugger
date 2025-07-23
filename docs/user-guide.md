@@ -52,7 +52,7 @@ cd temporal-goland-plugin
 ### 2. Build the Delve Wrapper
 
 ```bash
-cd delve_wrapper
+cd custom-debugger
 go build -o delve-wrapper .
 ```
 
@@ -74,7 +74,7 @@ Install the generated plugin from `build/distributions/` through your IDE's plug
 The delve wrapper acts as a proxy between your IDE and Delve:
 
 ```bash
-cd delve_wrapper
+cd custom-debugger
 ./delve-wrapper
 ```
 
@@ -177,7 +177,7 @@ func OrderProcessingWorkflow(ctx workflow.Context, order Order) error {
 #### ❌ Avoid Breakpoints In
 
 - Temporal SDK code (`go.temporal.io/sdk/...`)
-- Adapter/proxy code (`adapters/go/...`, `delve_wrapper/...`)
+- Adapter/proxy code (`adapters/go/...`, `custom-debugger/...`)
 - Deep runtime functions
 - Generated code
 

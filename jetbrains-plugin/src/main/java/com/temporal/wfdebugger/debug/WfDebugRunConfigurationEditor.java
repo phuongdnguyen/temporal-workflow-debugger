@@ -17,23 +17,23 @@ import javax.swing.*;
  * Users must provide a pre-built tdlv binary path.
  */
 public class WfDebugRunConfigurationEditor extends SettingsEditor<WfDebugRunConfiguration> {
-    
+
     private JPanel panel;
     private TextFieldWithBrowseButton workingDirectoryField;
     private JBTextField additionalArgsField;
-    
+
     @Override
     protected void resetEditorFrom(@NotNull WfDebugRunConfiguration configuration) {
         workingDirectoryField.setText(configuration.getWorkingDirectory());
         additionalArgsField.setText(configuration.getAdditionalArgs());
     }
-    
+
     @Override
     protected void applyEditorTo(@NotNull WfDebugRunConfiguration configuration) throws ConfigurationException {
         configuration.setWorkingDirectory(workingDirectoryField.getText().trim());
         configuration.setAdditionalArgs(additionalArgsField.getText().trim());
     }
-    
+
     @Override
     protected @NotNull JComponent createEditor() {
         if (panel == null) {
@@ -41,40 +41,41 @@ public class WfDebugRunConfigurationEditor extends SettingsEditor<WfDebugRunConf
         }
         return panel;
     }
-    
+
     private void createUI() {
         workingDirectoryField = new TextFieldWithBrowseButton();
         additionalArgsField = new JBTextField();
-        
+
         // Configure working directory field
         workingDirectoryField.addBrowseFolderListener(
-            "Select Working Directory",
-            "Choose the directory containing your workflow code to debug",
-            null,
-            FileChooserDescriptorFactory.createSingleFolderDescriptor()
-        );
-        
+                "Select Working Directory",
+                "Choose the directory containing your workflow code to debug",
+                null,
+                FileChooserDescriptorFactory.createSingleFolderDescriptor());
+
         // Create informational label
-        JBLabel infoLabel = new JBLabel("<html><small>You must provide a pre-built tdlv binary path in Settings → Tools → Temporal Workflow Debugger.<br/>" +
-                                       "To build tdlv, use the Makefile in your wf-debugger project that contains:<br/>" +
-                                       "• Makefile<br/>" +
-                                       "• delve_wrapper/ directory<br/>" +
-                                       "• my-wf/ directory</small></html>");
+        JBLabel infoLabel = new JBLabel(
+                "<html><small>You must provide a pre-built tdlv binary path in Settings → Tools → Temporal Workflow Debugger.<br/>"
+                        +
+                        "To build tdlv, use the Makefile in your wf-debugger project that contains:<br/>" +
+                        "• Makefile<br/>" +
+                        "• custom-debugger/ directory<br/>" +
+                        "• my-wf/ directory</small></html>");
         infoLabel.setForeground(javax.swing.UIManager.getColor("Label.disabledForeground"));
-        
+
         // Build the form
         panel = FormBuilder.createFormBuilder()
-            .addLabeledComponent(new JBLabel("Working Directory:"), workingDirectoryField, true)
-            .addTooltip("Directory containing your workflow code to debug")
-            .addComponent(infoLabel)
-            .addSeparator(5)
-            .addLabeledComponent(new JBLabel("Additional Arguments:"), additionalArgsField, true)
-            .addTooltip("Additional command line arguments to pass to tdlv (optional)")
-            .addComponent(new JBLabel("<html><small>Optional arguments:<br/>" +
-                                     "• -h: Show help<br/>" +
-                                     "• -v: Verbose logging<br/>" +
-                                     "Note: Proxy port is handled automatically</small></html>"))
-            .addComponentFillVertically(new JPanel(), 0)
-            .getPanel();
+                .addLabeledComponent(new JBLabel("Working Directory:"), workingDirectoryField, true)
+                .addTooltip("Directory containing your workflow code to debug")
+                .addComponent(infoLabel)
+                .addSeparator(5)
+                .addLabeledComponent(new JBLabel("Additional Arguments:"), additionalArgsField, true)
+                .addTooltip("Additional command line arguments to pass to tdlv (optional)")
+                .addComponent(new JBLabel("<html><small>Optional arguments:<br/>" +
+                        "• -h: Show help<br/>" +
+                        "• -v: Verbose logging<br/>" +
+                        "Note: Proxy port is handled automatically</small></html>"))
+                .addComponentFillVertically(new JPanel(), 0)
+                .getPanel();
     }
-} 
+}

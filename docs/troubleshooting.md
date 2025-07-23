@@ -25,7 +25,7 @@ This guide provides solutions to common issues when using the Temporal Workflow 
 
 1. **Verify delve wrapper is running**:
    ```bash
-   cd delve_wrapper
+   cd custom-debugger
    ./delve-wrapper
    # Should show: "Delve proxy listening on :2345"
    ```
@@ -64,7 +64,7 @@ This guide provides solutions to common issues when using the Temporal Workflow 
 
 1. **Check proxy logs**:
    ```bash
-   cd delve_wrapper
+   cd custom-debugger
    go run main.go -verbose
    # Look for error messages or connection issues
    ```
@@ -161,7 +161,7 @@ This guide provides solutions to common issues when using the Temporal Workflow 
 2. **Check auto-stepping is enabled**:
    ```bash
    # Verify proxy logs show auto-stepping
-   cd delve_wrapper
+   cd custom-debugger
    go run main.go -verbose
    # Look for: "🏃 AUTO-STEP: Stepping through adapter code"
    ```
@@ -226,7 +226,7 @@ This guide provides solutions to common issues when using the Temporal Workflow 
 3. **Check frame translation is working**:
    ```bash
    # Look for frame translation logs
-   cd delve_wrapper
+   cd custom-debugger
    go run main.go -verbose
    # Should see: "🔄 FRAME TRANSLATION: filtered frame 0 -> original frame 3"
    ```
@@ -283,7 +283,7 @@ This guide provides solutions to common issues when using the Temporal Workflow 
 1. **Verify stack filtering is enabled**:
    ```bash
    # Check proxy logs for filtering activity
-   cd delve_wrapper
+   cd custom-debugger
    go run main.go -verbose
    # Should see: "✂️ Filtering out X frames before my-wf/main.go"
    ```
@@ -301,7 +301,7 @@ This guide provides solutions to common issues when using the Temporal Workflow 
 4. **Update to latest version**:
    ```bash
    git pull origin main
-   cd delve_wrapper
+   cd custom-debugger
    go build -o delve-wrapper .
    ```
 
@@ -319,7 +319,7 @@ This guide provides solutions to common issues when using the Temporal Workflow 
 
 2. **Disable stack filtering temporarily**:
    ```bash
-   # Modify delve_wrapper to skip filtering for debugging
+   # Modify custom-debugger to skip filtering for debugging
    # Look for filterStacktraceResponse() function
    ```
 
@@ -388,7 +388,7 @@ This guide provides solutions to common issues when using the Temporal Workflow 
 3. **Check DAP protocol handling**:
    ```bash
    # Look for DAP-specific logs
-   cd delve_wrapper
+   cd custom-debugger
    go run main.go -verbose
    # Should see: "📥 DAP STACKTRACE REQUEST"
    ```
@@ -407,7 +407,7 @@ This guide provides solutions to common issues when using the Temporal Workflow 
 1. **Reduce logging verbosity**:
    ```bash
    # Run without verbose logging
-   cd delve_wrapper
+   cd custom-debugger
    ./delve-wrapper
    # Instead of: go run main.go -verbose
    ```
@@ -461,7 +461,7 @@ If you're having persistent issues, you can debug the debugger itself:
 
 1. **Enable comprehensive logging**:
    ```bash
-   cd delve_wrapper
+   cd custom-debugger
    go run main.go -verbose -log-requests -log-responses > debug.log 2>&1
    ```
 
@@ -548,7 +548,7 @@ If you've tried these solutions and still have issues:
    uname -a
    
    # Save proxy logs
-   cd delve_wrapper
+   cd custom-debugger
    go run main.go -verbose > debug.log 2>&1
    
    # Network status

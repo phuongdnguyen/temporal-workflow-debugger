@@ -48,7 +48,7 @@ if shouldTakeExtraStep {
 - ✅ **Error Handling**: Graceful fallback if additional step fails
 
 **Files Changed**:
-- `delve_wrapper/main.go`: Enhanced `performDirectAutoStepping()` to take additional UX step after reaching workflow code
+- `custom-debugger/main.go`: Enhanced `performDirectAutoStepping()` to take additional UX step after reaching workflow code
 
 ### Fixed
 
@@ -118,7 +118,7 @@ This heuristic was unreliable because:
 - ✅ **Improved Reliability**: No more guessing based on response state - uses authoritative request data
 
 **Files Changed**:
-- `delve_wrapper/main.go`: Added `extractCommandNameFromRequest()`, enhanced request tracking, removed flawed response heuristics
+- `custom-debugger/main.go`: Added `extractCommandNameFromRequest()`, enhanced request tracking, removed flawed response heuristics
 
 #### Auto-Stepping Logic & GoLand Crash Prevention
 
@@ -184,4 +184,4 @@ This heuristic was unreliable because:
 - GoLand debugging session remains stable throughout auto-stepping process
 
 **Files Changed**:
-- `delve_wrapper/main.go`: Enhanced `isInAdapterCodeByPath()` logic and fixed `performDirectAutoStepping()` response handling 
+- `custom-debugger/main.go`: Enhanced `isInAdapterCodeByPath()` logic and fixed `performDirectAutoStepping()` response handling 

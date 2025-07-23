@@ -162,7 +162,7 @@ For detailed technical changes, see [Developer Changelog](./developer-changelog.
 
 **All Users**:
 1. Update to the latest version: `git pull origin main`
-2. Rebuild the delve wrapper: `cd delve_wrapper && go build`
+2. Rebuild the delve wrapper: `cd custom-debugger && go build`
 3. Restart your debugging sessions
 
 **JetBrains Plugin Users**:

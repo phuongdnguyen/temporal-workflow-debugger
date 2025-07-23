@@ -1,4 +1,4 @@
-module delve_wrapper
+module custom-debugger
 
 go 1.23.11
 
