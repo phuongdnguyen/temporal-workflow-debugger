@@ -116,7 +116,7 @@ func main() {
 		<-ch
 		log.Println("Received shutdown signal...")
 		log.Println("Shutting down...")
-		proxyListener.Close()
+		_ = proxyListener.Close()
 		if err := server.Stop(); err != nil {
 			log.Printf("Error stopping Delve server: %v", err)
 		}

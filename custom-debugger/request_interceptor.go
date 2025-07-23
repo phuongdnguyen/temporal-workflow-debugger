@@ -112,21 +112,21 @@ func (rir *requestInterceptingReader) parseAndModifyRequests() []byte {
 		requestNum := rir.allRequestCount
 
 		jsonStr := string(jsonObj)
-		log.Printf("%s 📤 REQUEST #%d (%d bytes): %s", rir.name, requestNum, len(jsonObj), jsonStr[:min(150, len(jsonStr))])
+		log.Printf("%s REQUEST #%d (%d bytes): %s", rir.name, requestNum, len(jsonObj), jsonStr[:min(150, len(jsonStr))])
 
 		// Parse JSON-RPC request
 		var req JSONRPCRequest
 		if err := json.Unmarshal(jsonObj, &req); err == nil {
 			normalizedID := normalizeID(req.ID)
 
-			log.Printf("%s 🔍 JSON-RPC REQUEST ANALYSIS: Request #%d - ID:%v, method:%s",
+			log.Printf("%s JSON-RPC REQUEST ANALYSIS: Request #%d - ID:%v, method:%s",
 				rir.name, requestNum, req.ID, req.Method)
 			log.Printf("%s RPC Request #%d: %s (ID: %v)", rir.name, requestNum, req.Method, req.ID)
 
 			// CHECK FOR STEP OVER COMMAND - Remove auto-stepping complexity
 			if req.Method == "RPCServer.Command" {
 				if rir.isStepOverCommand(req) {
-					log.Printf("%s 🔄 STEP OVER DETECTED: Request #%d (ID:%v) - will handle normally", rir.name, requestNum, req.ID)
+					log.Printf("%s STEP OVER DETECTED: Request #%d (ID:%v) - will handle normally", rir.name, requestNum, req.ID)
 				}
 			}
 
@@ -134,7 +134,7 @@ func (rir *requestInterceptingReader) parseAndModifyRequests() []byte {
 			if req.Method == "RPCServer.Eval" {
 				modifiedRequest := rir.translateEvalFrameNumber(jsonObj, remaining, requestNum)
 				if modifiedRequest != nil {
-					log.Printf("%s ✅ *** RETURNING TRANSLATED EVAL REQUEST #%d ***", rir.name, requestNum)
+					log.Printf("%s *** RETURNING TRANSLATED EVAL REQUEST #%d ***", rir.name, requestNum)
 					return modifiedRequest
 				}
 			}
@@ -143,7 +143,7 @@ func (rir *requestInterceptingReader) parseAndModifyRequests() []byte {
 			if req.Method == "RPCServer.ListLocalVars" || req.Method == "RPCServer.ListFunctionArgs" {
 				modifiedRequest := rir.translateFrameBasedRequest(jsonObj, remaining, requestNum, req.Method)
 				if modifiedRequest != nil {
-					log.Printf("%s ✅ *** RETURNING TRANSLATED %s REQUEST #%d ***", rir.name, req.Method, requestNum)
+					log.Printf("%s *** RETURNING TRANSLATED %s REQUEST #%d ***", rir.name, req.Method, requestNum)
 					return modifiedRequest
 				}
 			}
@@ -156,27 +156,27 @@ func (rir *requestInterceptingReader) parseAndModifyRequests() []byte {
 			if req.Method == "RPCServer.Command" {
 				commandName := rir.extractCommandNameFromRequest(req)
 				methodToStore = fmt.Sprintf("RPCServer.Command.%s", commandName)
-				log.Printf("%s 🎯 COMMAND TRACKING: Request #%d (ID:%v) -> %s command", rir.name, requestNum, req.ID, commandName)
+				log.Printf("%s COMMAND TRACKING: Request #%d (ID:%v) -> %s command", rir.name, requestNum, req.ID, commandName)
 			} else {
 				methodToStore = req.Method
 			}
 
 			rir.requestMethodMap[normalizedID] = methodToStore
-			log.Printf("%s 🗂️  TRACKING: Request #%d (ID:%v) -> method:%s (total tracked: %d)",
+			log.Printf("%s TRACKING: Request #%d (ID:%v) -> method:%s (total tracked: %d)",
 				rir.name, requestNum, req.ID, methodToStore, len(rir.requestMethodMap))
 			rir.mapMutex.Unlock()
 
 			// Special handling for State method requests
 			if req.Method == "RPCServer.State" {
-				log.Printf("%s 🎯 Tracking State request #%d with ID: %v", rir.name, requestNum, req.ID)
+				log.Printf("%s Tracking State request #%d with ID: %v", rir.name, requestNum, req.ID)
 			}
 
 			if req.Method == "RPCServer.Stacktrace" {
-				log.Printf("%s 🎯 Tracking JSON-RPC Stacktrace request #%d with ID: %v", rir.name, requestNum, req.ID)
+				log.Printf("%s Tracking JSON-RPC Stacktrace request #%d with ID: %v", rir.name, requestNum, req.ID)
 			}
 		} else {
-			log.Printf("%s ❌ UNPARSEABLE REQUEST #%d (JSON-RPC): %v", rir.name, requestNum, err)
-			log.Printf("%s ❌ Raw data: %s", rir.name, jsonStr[:min(200, len(jsonStr))])
+			log.Printf("%s UNPARSEABLE REQUEST #%d (JSON-RPC): %v", rir.name, requestNum, err)
+			log.Printf("%s Raw data: %s", rir.name, jsonStr[:min(200, len(jsonStr))])
 		}
 	}
 
@@ -185,25 +185,25 @@ func (rir *requestInterceptingReader) parseAndModifyRequests() []byte {
 
 // translateEvalFrameNumber translates frame numbers in RPCServer.Eval requests from filtered to original
 func (rir *requestInterceptingReader) translateEvalFrameNumber(jsonObj []byte, remaining []byte, requestNum int) []byte {
-	log.Printf("%s 🔧 ENTERING translateEvalFrameNumber for request #%d", rir.name, requestNum)
+	log.Printf("%s ENTERING translateEvalFrameNumber for request #%d", rir.name, requestNum)
 
 	// Parse the JSON-RPC request
 	var req JSONRPCRequest
 	if err := json.Unmarshal(jsonObj, &req); err != nil {
-		log.Printf("%s ❌ Failed to parse Eval request for frame translation: %v", rir.name, err)
+		log.Printf("%s Failed to parse Eval request for frame translation: %v", rir.name, err)
 		return nil
 	}
 
 	// Extract the EvalIn parameters
 	if req.Params == nil {
-		log.Printf("%s ❌ Eval request has no params", rir.name)
+		log.Printf("%s Eval request has no params", rir.name)
 		return nil
 	}
 
 	// Convert params to EvalIn struct
 	paramsBytes, err := json.Marshal(req.Params)
 	if err != nil {
-		log.Printf("%s ❌ Failed to marshal Eval params: %v", rir.name, err)
+		log.Printf("%s Failed to marshal Eval params: %v", rir.name, err)
 		return nil
 	}
 
@@ -223,24 +223,24 @@ func (rir *requestInterceptingReader) translateEvalFrameNumber(jsonObj []byte, r
 	// First parse as array to get the first element
 	var paramsArray []EvalIn
 	if err := json.Unmarshal(paramsBytes, &paramsArray); err != nil {
-		log.Printf("%s ❌ Failed to parse EvalIn params array: %v", rir.name, err)
+		log.Printf("%s Failed to parse EvalIn params array: %v", rir.name, err)
 		return nil
 	}
 
 	if len(paramsArray) == 0 {
-		log.Printf("%s ❌ EvalIn params array is empty", rir.name)
+		log.Printf("%s EvalIn params array is empty", rir.name)
 		return nil
 	}
 
 	evalParams := paramsArray[0]
 
 	originalFrame := evalParams.Scope.Frame
-	log.Printf("%s 🎯 EVAL REQUEST ANALYSIS: expr='%s', goroutine=%d, frame=%d",
+	log.Printf("%s EVAL REQUEST ANALYSIS: expr='%s', goroutine=%d, frame=%d",
 		rir.name, evalParams.Expr, evalParams.Scope.GoroutineID, originalFrame)
 
 	// Get frame mapping from response reader
 	if rir.responseReader == nil {
-		log.Printf("%s ❌ No response reader available for frame mapping", rir.name)
+		log.Printf("%s No response reader available for frame mapping", rir.name)
 		return nil
 	}
 
@@ -248,7 +248,7 @@ func (rir *requestInterceptingReader) translateEvalFrameNumber(jsonObj []byte, r
 	frameMapping := rir.responseReader.frameMapping
 	if len(frameMapping) == 0 {
 		rir.responseReader.frameMappingLock.RUnlock()
-		log.Printf("%s ⚠️ No frame mapping available, request may fail", rir.name)
+		log.Printf("%s No frame mapping available, request may fail", rir.name)
 		return nil
 	}
 
@@ -257,11 +257,11 @@ func (rir *requestInterceptingReader) translateEvalFrameNumber(jsonObj []byte, r
 	rir.responseReader.frameMappingLock.RUnlock()
 
 	if !exists {
-		log.Printf("%s ❌ Frame %d not found in mapping (available: %v)", rir.name, originalFrame, frameMapping)
+		log.Printf("%s Frame %d not found in mapping (available: %v)", rir.name, originalFrame, frameMapping)
 		return nil
 	}
 
-	log.Printf("%s 🔄 FRAME TRANSLATION: filtered frame %d -> original frame %d", rir.name, originalFrame, translatedFrame)
+	log.Printf("%s FRAME TRANSLATION: filtered frame %d -> original frame %d", rir.name, originalFrame, translatedFrame)
 
 	// Modify the request with the translated frame number
 	evalParams.Scope.Frame = translatedFrame
@@ -270,14 +270,14 @@ func (rir *requestInterceptingReader) translateEvalFrameNumber(jsonObj []byte, r
 	modifiedParamsArray := []EvalIn{evalParams}
 	modifiedParamsBytes, err := json.Marshal(modifiedParamsArray)
 	if err != nil {
-		log.Printf("%s ❌ Failed to marshal modified EvalIn params array: %v", rir.name, err)
+		log.Printf("%s Failed to marshal modified EvalIn params array: %v", rir.name, err)
 		return nil
 	}
 
 	// Convert back to interface{} for the request
 	var modifiedParams interface{}
 	if err := json.Unmarshal(modifiedParamsBytes, &modifiedParams); err != nil {
-		log.Printf("%s ❌ Failed to unmarshal modified params array: %v", rir.name, err)
+		log.Printf("%s Failed to unmarshal modified params array: %v", rir.name, err)
 		return nil
 	}
 
@@ -287,11 +287,11 @@ func (rir *requestInterceptingReader) translateEvalFrameNumber(jsonObj []byte, r
 	// Re-encode the complete request
 	modifiedRequestBytes, err := json.Marshal(req)
 	if err != nil {
-		log.Printf("%s ❌ Failed to marshal modified Eval request: %v", rir.name, err)
+		log.Printf("%s Failed to marshal modified Eval request: %v", rir.name, err)
 		return nil
 	}
 
-	log.Printf("%s ✅ Successfully translated Eval request: frame %d -> %d", rir.name, originalFrame, translatedFrame)
+	log.Printf("%s Successfully translated Eval request: frame %d -> %d", rir.name, originalFrame, translatedFrame)
 
 	// Combine modified request with remaining buffer data
 	modifiedBuffer := make([]byte, len(modifiedRequestBytes)+len(remaining))
@@ -303,25 +303,25 @@ func (rir *requestInterceptingReader) translateEvalFrameNumber(jsonObj []byte, r
 
 // translateFrameBasedRequest translates frame numbers in frame-based requests like ListLocalVars and ListFunctionArgs
 func (rir *requestInterceptingReader) translateFrameBasedRequest(jsonObj []byte, remaining []byte, requestNum int, method string) []byte {
-	log.Printf("%s 🔧 ENTERING translateFrameBasedRequest for %s request #%d", rir.name, method, requestNum)
+	log.Printf("%s ENTERING translateFrameBasedRequest for %s request #%d", rir.name, method, requestNum)
 
 	// Parse the JSON-RPC request
 	var req JSONRPCRequest
 	if err := json.Unmarshal(jsonObj, &req); err != nil {
-		log.Printf("%s ❌ Failed to parse %s request for frame translation: %v", rir.name, method, err)
+		log.Printf("%s Failed to parse %s request for frame translation: %v", rir.name, method, err)
 		return nil
 	}
 
 	// Extract the parameters
 	if req.Params == nil {
-		log.Printf("%s ❌ %s request has no params", rir.name, method)
+		log.Printf("%s %s request has no params", rir.name, method)
 		return nil
 	}
 
 	// Convert params to check for frame-based parameters
 	paramsBytes, err := json.Marshal(req.Params)
 	if err != nil {
-		log.Printf("%s ❌ Failed to marshal %s params: %v", rir.name, method, err)
+		log.Printf("%s Failed to marshal %s params: %v", rir.name, method, err)
 		return nil
 	}
 
@@ -340,24 +340,24 @@ func (rir *requestInterceptingReader) translateFrameBasedRequest(jsonObj []byte,
 	// First parse as array to get the first element
 	var paramsArray []FrameBasedParams
 	if err := json.Unmarshal(paramsBytes, &paramsArray); err != nil {
-		log.Printf("%s ❌ Failed to parse %s params array: %v", rir.name, method, err)
+		log.Printf("%s Failed to parse %s params array: %v", rir.name, method, err)
 		return nil
 	}
 
 	if len(paramsArray) == 0 {
-		log.Printf("%s ❌ %s params array is empty", rir.name, method)
+		log.Printf("%s %s params array is empty", rir.name, method)
 		return nil
 	}
 
 	params := paramsArray[0]
 
 	originalFrame := params.Scope.Frame
-	log.Printf("%s 🎯 %s REQUEST ANALYSIS: goroutine=%d, frame=%d",
+	log.Printf("%s %s REQUEST ANALYSIS: goroutine=%d, frame=%d",
 		rir.name, method, params.Scope.GoroutineID, originalFrame)
 
 	// Get frame mapping from response reader
 	if rir.responseReader == nil {
-		log.Printf("%s ❌ No response reader available for frame mapping", rir.name)
+		log.Printf("%s No response reader available for frame mapping", rir.name)
 		return nil
 	}
 
@@ -365,7 +365,7 @@ func (rir *requestInterceptingReader) translateFrameBasedRequest(jsonObj []byte,
 	frameMapping := rir.responseReader.frameMapping
 	if len(frameMapping) == 0 {
 		rir.responseReader.frameMappingLock.RUnlock()
-		log.Printf("%s ⚠️ No frame mapping available, %s request may fail", rir.name, method)
+		log.Printf("%s No frame mapping available, %s request may fail", rir.name, method)
 		return nil
 	}
 
@@ -374,11 +374,11 @@ func (rir *requestInterceptingReader) translateFrameBasedRequest(jsonObj []byte,
 	rir.responseReader.frameMappingLock.RUnlock()
 
 	if !exists {
-		log.Printf("%s ❌ Frame %d not found in mapping for %s (available: %v)", rir.name, originalFrame, method, frameMapping)
+		log.Printf("%s Frame %d not found in mapping for %s (available: %v)", rir.name, originalFrame, method, frameMapping)
 		return nil
 	}
 
-	log.Printf("%s 🔄 %s FRAME TRANSLATION: filtered frame %d -> original frame %d", rir.name, method, originalFrame, translatedFrame)
+	log.Printf("%s %s FRAME TRANSLATION: filtered frame %d -> original frame %d", rir.name, method, originalFrame, translatedFrame)
 
 	// Modify the request with the translated frame number
 	params.Scope.Frame = translatedFrame
@@ -387,14 +387,14 @@ func (rir *requestInterceptingReader) translateFrameBasedRequest(jsonObj []byte,
 	modifiedParamsArray := []FrameBasedParams{params}
 	modifiedParamsBytes, err := json.Marshal(modifiedParamsArray)
 	if err != nil {
-		log.Printf("%s ❌ Failed to marshal modified %s params array: %v", rir.name, method, err)
+		log.Printf("%s Failed to marshal modified %s params array: %v", rir.name, method, err)
 		return nil
 	}
 
 	// Convert back to interface{} for the request
 	var modifiedParams interface{}
 	if err := json.Unmarshal(modifiedParamsBytes, &modifiedParams); err != nil {
-		log.Printf("%s ❌ Failed to unmarshal modified %s params array: %v", rir.name, method, err)
+		log.Printf("%s Failed to unmarshal modified %s params array: %v", rir.name, method, err)
 		return nil
 	}
 
@@ -404,11 +404,11 @@ func (rir *requestInterceptingReader) translateFrameBasedRequest(jsonObj []byte,
 	// Re-encode the complete request
 	modifiedRequestBytes, err := json.Marshal(req)
 	if err != nil {
-		log.Printf("%s ❌ Failed to marshal modified %s request: %v", rir.name, method, err)
+		log.Printf("%s Failed to marshal modified %s request: %v", rir.name, method, err)
 		return nil
 	}
 
-	log.Printf("%s ✅ Successfully translated %s request: frame %d -> %d", rir.name, method, originalFrame, translatedFrame)
+	log.Printf("%s Successfully translated %s request: frame %d -> %d", rir.name, method, originalFrame, translatedFrame)
 
 	// Combine modified request with remaining buffer data
 	modifiedBuffer := make([]byte, len(modifiedRequestBytes)+len(remaining))
