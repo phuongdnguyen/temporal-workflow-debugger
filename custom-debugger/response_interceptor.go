@@ -26,7 +26,7 @@ type StateOut struct {
 	State *api.DebuggerState `json:"State"`
 }
 
-// responseInterceptingReader wraps a reader and intercepts JSON-RPC responses
+// responseInterceptingReader wraps a reader and intercepts JSON-RPC responses from delve -> client
 type responseInterceptingReader struct {
 	reader           io.Reader
 	name             string

@@ -15,7 +15,7 @@ type JSONRPCRequest struct {
 	Params interface{} `json:"params"`
 }
 
-// requestInterceptingReader wraps a reader and tracks JSON-RPC requests
+// requestInterceptingReader wraps a reader and tracks JSON-RPC requests from client -> delve
 type requestInterceptingReader struct {
 	reader           io.Reader
 	name             string
@@ -29,9 +29,6 @@ type requestInterceptingReader struct {
 	modifiedData   []byte // Buffer for modified requests to send to delve
 	modifiedOffset int    // Current position in modifiedData
 
-	// Step over to continue conversion tracking
-	stepOverToContinueMap map[string]string // Maps continue ID -> original step over ID
-	stepOverMapMutex      sync.Mutex        // Protects the step over mapping
 }
 
 func (rir *requestInterceptingReader) Read(p []byte) (n int, err error) {
