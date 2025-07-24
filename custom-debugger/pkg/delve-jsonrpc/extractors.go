@@ -1,4 +1,4 @@
-package main
+package delve_jsonrpc
 
 import (
 	"bytes"
@@ -8,24 +8,24 @@ import (
 	"github.com/go-delve/delve/service/api"
 )
 
-// extractJSONObject finds and extracts the first complete JSON object from the buffer
+// ExtractJSONObject finds and extracts the first complete JSON object from the Buffer
 // Handles both DAP (with Content-Length headers) and JSON-RPC formats
-func extractJSONObject(data []byte) (jsonObj []byte, remaining []byte, found bool) {
+func ExtractJSONObject(data []byte) (jsonObj []byte, remaining []byte, found bool) {
 	if len(data) == 0 {
 		return nil, data, false
 	}
 
 	// Check if this is a DAP message (starts with Content-Length header)
 	if bytes.HasPrefix(data, []byte("Content-Length:")) {
-		return extractDAPMessage(data)
+		return ExtractDAPMessage(data)
 	}
 
 	// Fall back to JSON-RPC parsing
-	return extractJSONRPCMessage(data)
+	return ExtractJSONRPCMessage(data)
 }
 
-// extractDAPMessage extracts a DAP message with Content-Length header
-func extractDAPMessage(data []byte) (jsonObj []byte, remaining []byte, found bool) {
+// ExtractDAPMessage extracts a DAP message with Content-Length header
+func ExtractDAPMessage(data []byte) (jsonObj []byte, remaining []byte, found bool) {
 	// DAP format: Content-Length: XXX\r\n\r\n{JSON}
 
 	// Safety check: don't process unreasonably large data
@@ -50,13 +50,13 @@ func extractDAPMessage(data []byte) (jsonObj []byte, remaining []byte, found boo
 	var contentLength int
 	if n, err := fmt.Sscanf(contentLengthLine, "Content-Length: %d", &contentLength); n != 1 || err != nil {
 		// Invalid Content-Length header, fall back to JSON-RPC
-		return extractJSONRPCMessage(data)
+		return ExtractJSONRPCMessage(data)
 	}
 
 	// Sanity check on content length
 	if contentLength < 0 || contentLength > 10*1024*1024 { // 10MB limit
 		// Invalid content length, fall back to JSON-RPC
-		return extractJSONRPCMessage(data)
+		return ExtractJSONRPCMessage(data)
 	}
 
 	// Calculate where the JSON payload starts and ends
@@ -75,8 +75,8 @@ func extractDAPMessage(data []byte) (jsonObj []byte, remaining []byte, found boo
 	return jsonObj, remaining, true
 }
 
-// extractJSONRPCMessage extracts a JSON-RPC message (plain JSON object)
-func extractJSONRPCMessage(data []byte) (jsonObj []byte, remaining []byte, found bool) {
+// ExtractJSONRPCMessage extracts a JSON-RPC message (plain JSON object)
+func ExtractJSONRPCMessage(data []byte) (jsonObj []byte, remaining []byte, found bool) {
 	// Safety check: don't process unreasonably large data
 	const maxMessageSize = 1024 * 1024 // 1MB per message
 	if len(data) > maxMessageSize {
@@ -139,8 +139,8 @@ func extractJSONRPCMessage(data []byte) (jsonObj []byte, remaining []byte, found
 	return nil, data, false
 }
 
-// extractLocationFromCommandResponse helper function to extract location info from command response
-func extractLocationFromCommandResponse(jsonObj []byte) *struct {
+// ExtractLocationFromCommandResponse helper function to extract location info from command response
+func ExtractLocationFromCommandResponse(jsonObj []byte) *struct {
 	File     string
 	Line     int
 	Function string
@@ -179,7 +179,7 @@ func extractLocationFromCommandResponse(jsonObj []byte) *struct {
 		Line: commandOut.State.CurrentThread.Line,
 	}
 
-	// Try to get function name
+	// Try to get function Name
 	if commandOut.State.CurrentThread.BreakpointInfo != nil &&
 		len(commandOut.State.CurrentThread.BreakpointInfo.Stacktrace) > 0 {
 		topFrame := commandOut.State.CurrentThread.BreakpointInfo.Stacktrace[0]

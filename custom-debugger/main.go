@@ -12,6 +12,8 @@ import (
 	"github.com/go-delve/delve/service"
 	"github.com/go-delve/delve/service/debugger"
 	"github.com/go-delve/delve/service/rpccommon"
+
+	"custom-debugger/pkg/utils"
 )
 
 var (
@@ -71,14 +73,15 @@ func main() {
 		DebugInfoDirectories: []string{},
 		DisableASLR:          false,
 	}
-	debugname, ok := buildBinary([]string{}, false)
+	debugname, ok := utils.BuildBinary([]string{}, false)
 	if !ok {
 		log.Fatal("could not build binary")
 	}
 	// pwd
 	log.Println(fmt.Printf("built binary at %s", debugname))
 
-	// Create RPC2 server with headless mode (supports both JSON-RPC and DAP)
+	// Create RPC2 server with headless mode
+	// TODO: figure out if we should use headless mode or not in Goland IDE integration
 	server := rpccommon.NewServer(&service.Config{
 		Listener: l,
 		Debugger: debuggerConfig,
@@ -135,7 +138,7 @@ func main() {
 		// Handle client connection in a goroutine
 		// Don't signal shutdown on disconnect - allow reconnections
 		go func() {
-			handleClientConnection(clientTCP)
+			HandleClientConnection(clientTCP)
 			log.Printf("Client connection ended, but server continues running for reconnections")
 		}()
 	}

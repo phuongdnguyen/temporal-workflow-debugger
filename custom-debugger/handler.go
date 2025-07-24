@@ -9,9 +9,12 @@ import (
 	"time"
 
 	"github.com/go-delve/delve/service/rpc2"
+
+	"custom-debugger/pkg/delve-jsonrpc"
+	"custom-debugger/pkg/utils"
 )
 
-func handleClientConnection(clientTCP net.Conn) {
+func HandleClientConnection(clientTCP net.Conn) {
 	clientAddr := clientTCP.RemoteAddr().String()
 	log.Printf("New client connected from %s", clientAddr)
 
@@ -36,7 +39,7 @@ func handleClientConnection(clientTCP net.Conn) {
 	}
 
 	// Dial real Delve with retry logic
-	delveTCP, err := dialDelveWithRetry("localhost:2345", 3, time.Second)
+	delveTCP, err := utils.DialDelveWithRetry("localhost:2345", 3, time.Second)
 	if err != nil {
 		log.Printf("Error connecting to Delve server for %s after retries: %v", clientAddr, err)
 		if err := clientTCP.Close(); err != nil {
@@ -76,35 +79,35 @@ func handleClientConnection(clientTCP net.Conn) {
 	// Create delve client for auto-stepping operations
 	delveClient := rpc2.NewClient("localhost:2345")
 
-	// Create response interceptor first so we can reference it
-	delveReader := &responseInterceptingReader{
-		reader:           delveTCP,
-		name:             fmt.Sprintf("[%s] Delve->Client", clientAddr),
-		requestMethodMap: requestMethodMap,
-		mapMutex:         &mapMutex,
-		clientAddr:       clientAddr,
+	// Create a response interceptor first so we can reference it
+	delveReader := &delve_jsonrpc.ResponseInterceptingReader{
+		Reader:           delveTCP,
+		Name:             fmt.Sprintf("[%s] Delve->Client", clientAddr),
+		RequestMethodMap: requestMethodMap,
+		MapMutex:         &mapMutex,
+		ClientAddr:       clientAddr,
 
 		// Enhanced debugging counters
-		stackTraceCount:     0,
-		stackFrameDataCount: 0,
-		allResponseCount:    0,
-		mainThreadMutex:     sync.Mutex{},
+		StackTraceCount:     0,
+		StackFrameDataCount: 0,
+		AllResponseCount:    0,
+		MainThreadMutex:     sync.Mutex{},
 
 		// Frame mapping for JSON-RPC stacktrace filtering
-		frameMapping:     make(map[int]int),
-		frameMappingLock: sync.RWMutex{},
+		FrameMapping:     make(map[int]int),
+		FrameMappingLock: sync.RWMutex{},
 
 		// Auto-stepping infrastructure
-		delveClient: delveClient,
+		DelveClient: delveClient,
 
 		// Current state tracking for sentinel breakpoint detection
-		currentFile:     "",             // Current file location
-		currentFunction: "",             // Current function name
-		currentLine:     0,              // Current line number
-		stateMutex:      sync.RWMutex{}, // Protects current state fields
+		CurrentFile:     "",             // Current file location
+		CurrentFunction: "",             // Current function name
+		CurrentLine:     0,              // Current line number
+		StateMutex:      sync.RWMutex{}, // Protects current state fields
 
 		// Reference to request reader for step over tracking
-		requestReader: nil, // Will be set after clientReader is created
+		RequestReader: nil, // Will be set after clientReader is created
 	}
 
 	// Ensure both connections are closed when function exits
@@ -119,7 +122,7 @@ func handleClientConnection(clientTCP net.Conn) {
 		}
 
 		// Log debugging summary
-		delveReader.logDebuggingSummary()
+		delveReader.LogDebuggingSummary()
 
 		log.Printf("Client %s disconnected", clientAddr)
 	}()
@@ -134,20 +137,20 @@ func handleClientConnection(clientTCP net.Conn) {
 		log.Println("Client->Delve")
 
 		// Create intercepting reader that also tracks requests
-		clientReader := &requestInterceptingReader{
-			reader:           clientTCP,
-			name:             fmt.Sprintf("[%s] Client->Delve", clientAddr),
-			requestMethodMap: requestMethodMap,
-			mapMutex:         &mapMutex,
-			responseReader:   delveReader,
+		clientReader := &delve_jsonrpc.RequestInterceptingReader{
+			Reader:           clientTCP,
+			Name:             fmt.Sprintf("[%s] Client->Delve", clientAddr),
+			RequestMethodMap: requestMethodMap,
+			MapMutex:         &mapMutex,
+			ResponseReader:   delveReader,
 		}
 
 		// Set the reference from response reader to request reader for step over tracking
-		delveReader.requestReader = clientReader
+		delveReader.RequestReader = clientReader
 
 		if _, err := io.Copy(delveTCP, clientReader); err != nil {
 			// Check if this is a normal connection close vs an actual error
-			if isConnectionClosedError(err) {
+			if utils.IsConnectionClosedError(err) {
 				log.Printf("Client->Delve connection closed normally for %s", clientAddr)
 			} else {
 				log.Printf("Error copying client->delve for %s: %v", clientAddr, err)
@@ -166,7 +169,7 @@ func handleClientConnection(clientTCP net.Conn) {
 
 		if _, err := io.Copy(clientTCP, delveReader); err != nil {
 			// Check if this is a normal connection close vs an actual error
-			if isConnectionClosedError(err) {
+			if utils.IsConnectionClosedError(err) {
 				log.Printf("Delve->Client connection closed normally for %s", clientAddr)
 			} else {
 				log.Printf("Error copying delve->client for %s: %v", clientAddr, err)
