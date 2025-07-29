@@ -12,6 +12,9 @@ import (
 	"github.com/go-delve/delve/service"
 	"github.com/go-delve/delve/service/debugger"
 	"github.com/go-delve/delve/service/rpccommon"
+
+	"custom-debugger/pkg/handlers"
+	"custom-debugger/pkg/utils"
 )
 
 var (
@@ -23,11 +26,13 @@ func main() {
 	// Command-line flags
 	// -----------------------------------------------
 	var showHelp bool
-	flag.BoolVar(&showHelp, "help", false, "tdlv is a temporal workflow debugger. This is a wrapper for delve to provide a seamless experience for debugging temporal workflows. (alias: -h)")
+	flag.BoolVar(&showHelp, "help", false, "tdlv is a temporal workflow debugger, "+
+		"supports both DAP and JSON-RPC (alias: -h)")
 	var proxyPort int
 	flag.IntVar(&proxyPort, "p", 60000, "port for the tdlv proxy (default 60000)")
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "Tdlv is a temporal workflow debugger. This is a wrapper for delve to provide a seamless experience for debugging temporal workflows. (ports 2345 / 60000)\n\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "Tdlv is a temporal workflow debugger, "+
+			"supports both DAP and JSON-RPC  (ports 2345 / 60000)\n\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [options]\n\n", os.Args[0])
 		flag.PrintDefaults()
 	}
@@ -41,9 +46,6 @@ func main() {
 
 	// Enable verbose logging for debugging RPC issues
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-
-	// Enable Go RPC debug logging via environment variables
-	os.Setenv("GODEBUG", "rpclog=1") // Enable RPC debug logging if supported
 
 	// Listen on TCP port for Delve server
 	l, err := net.Listen("tcp", ":2345")
@@ -65,24 +67,24 @@ func main() {
 	debuggerConfig := debugger.Config{
 		WorkingDir:     workingDir,
 		Backend:        "default",
-		Foreground:     true, // Enable headless mode
+		Foreground:     false,
 		CheckGoVersion: true,
 		// Enable debug logging to see RPC communication issues
 		DebugInfoDirectories: []string{},
 		DisableASLR:          false,
 	}
-	debugname, ok := buildBinary([]string{}, false)
+	debugname, ok := utils.BuildBinary([]string{}, false)
 	if !ok {
 		log.Fatal("could not build binary")
 	}
 	// pwd
 	log.Println(fmt.Printf("built binary at %s", debugname))
 
-	// Create RPC2 server with headless mode (supports both JSON-RPC and DAP)
+	// Create RPC2 server
 	server := rpccommon.NewServer(&service.Config{
 		Listener: l,
 		Debugger: debuggerConfig,
-		// TODO: figure out why IDE need to reconnect to delve
+		// TODO: figure out why IDE need this set to true
 		AcceptMulti: true, // Allow multiple connections and reconnections
 		APIVersion:  2,
 		ProcessArgs: []string{debugname},
@@ -135,8 +137,12 @@ func main() {
 		// Handle client connection in a goroutine
 		// Don't signal shutdown on disconnect - allow reconnections
 		go func() {
-			handleClientConnection(clientTCP)
+			handlers.Handle(clientTCP)
 			log.Printf("Client connection ended, but server continues running for reconnections")
 		}()
 	}
+}
+
+func init() {
+	log.SetOutput(os.Stdout)
 }

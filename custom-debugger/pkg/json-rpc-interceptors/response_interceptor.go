@@ -1,48 +1,40 @@
-package main
+package json_rpc_interceptors
 
 import (
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/go-delve/delve/service/api"
 	"github.com/go-delve/delve/service/rpc2"
-)
 
-type JSONRPCResponse struct {
-	ID     interface{} `json:"id"`
-	Result interface{} `json:"result,omitempty"`
-	Error  interface{} `json:"error,omitempty"`
-}
+	"custom-debugger/pkg/utils"
+)
 
 // StateOut represents the State method response structure
 type StateOut struct {
 	State *api.DebuggerState `json:"State"`
 }
 
-// responseInterceptingReader wraps a reader and intercepts JSON-RPC responses from delve -> client
-type responseInterceptingReader struct {
+// ResponseInterceptingReader wraps a reader and intercepts JSON-RPC responses from delve -> client
+type ResponseInterceptingReader struct {
 	reader           io.Reader
-	name             string
+	logPrefix        string
 	requestMethodMap map[string]string
 	mapMutex         *sync.Mutex
 	clientAddr       string
 	buffer           []byte
-	modifiedData     []byte // Buffer for modified responses to send to client
+	modifiedData     []byte // buffer for modified responses to send to client
 	modifiedOffset   int    // Current position in modifiedData
 
 	// Enhanced debugging counters
 	// Enhanced debugging counters (no locks needed for debug counters)
-	stackTraceCount     int
 	stackFrameDataCount int
 	allResponseCount    int
-	mainThreadMutex     sync.Mutex
 
 	// Frame mapping for JSON-RPC stacktrace filtering
 	frameMapping     map[int]int // Maps filtered frame index -> original frame index
@@ -56,12 +48,24 @@ type responseInterceptingReader struct {
 	currentFunction string       // Current function name
 	currentLine     int          // Current line number
 	stateMutex      sync.RWMutex // Protects current state fields
-
-	// Reference to request reader for step over tracking
-	requestReader *requestInterceptingReader
 }
 
-func (rir *responseInterceptingReader) Read(p []byte) (n int, err error) {
+func NewResponseInterceptingReader(reader io.Reader, logPrefix string, requestMethodMap map[string]string, mapMutex *sync.Mutex, clientAddr string, delveClient *rpc2.RPCClient) *ResponseInterceptingReader {
+	return &ResponseInterceptingReader{
+		reader:           reader,
+		logPrefix:        logPrefix,
+		requestMethodMap: requestMethodMap,
+		mapMutex:         mapMutex,
+		clientAddr:       clientAddr,
+		// TODO: might not need to init frameMapping here
+		frameMapping:     make(map[int]int),
+		frameMappingLock: sync.RWMutex{},
+		delveClient:      delveClient,
+		stateMutex:       sync.RWMutex{},
+	}
+}
+
+func (rir *ResponseInterceptingReader) Read(p []byte) (n int, err error) {
 	// First, check if we have modified data to send to client
 	if rir.modifiedOffset < len(rir.modifiedData) {
 		// Send modified data instead of reading from delve
@@ -80,7 +84,7 @@ func (rir *responseInterceptingReader) Read(p []byte) (n int, err error) {
 			rir.modifiedOffset = 0
 		}
 
-		log.Printf("%s: %d bytes (modified)", rir.name, bytesToCopy)
+		log.Printf("%s: %d bytes (modified)", rir.logPrefix, bytesToCopy)
 		return bytesToCopy, nil
 	}
 
@@ -100,7 +104,7 @@ func (rir *responseInterceptingReader) Read(p []byte) (n int, err error) {
 		// Check if response was suppressed (nil means suppress)
 		if modifiedData == nil && len(rir.buffer) == 0 {
 			// Response was suppressed - don't send anything to client
-			log.Printf("%s: 0 bytes (response suppressed)", rir.name)
+			log.Printf("%s: 0 bytes (response suppressed)", rir.logPrefix)
 			return 0, nil
 		}
 
@@ -121,20 +125,20 @@ func (rir *responseInterceptingReader) Read(p []byte) (n int, err error) {
 			copy(p, modifiedData[:bytesToCopy])
 			rir.modifiedOffset = bytesToCopy
 
-			log.Printf("%s: %d bytes (replaced with modified)", rir.name, bytesToCopy)
+			log.Printf("%s: %d bytes (replaced with modified)", rir.logPrefix, bytesToCopy)
 			return bytesToCopy, err
 		}
 
-		log.Printf("%s: %d bytes", rir.name, n)
+		log.Printf("%s: %d bytes", rir.logPrefix, n)
 	}
 	return n, err
 }
 
-func (rir *responseInterceptingReader) parseResponses() []byte {
+func (rir *ResponseInterceptingReader) parseResponses() []byte {
 	// Safety check: prevent buffer from growing too large
 	const maxBufferSize = 10 * 1024 * 1024 // 10MB limit
 	if len(rir.buffer) > maxBufferSize {
-		log.Printf("%s Buffer too large (%d bytes), resetting to prevent memory issues", rir.name, len(rir.buffer))
+		log.Printf("%s buffer too large (%d bytes), resetting to prevent memory issues", rir.logPrefix, len(rir.buffer))
 		rir.buffer = nil
 		return nil
 	}
@@ -147,7 +151,7 @@ func (rir *responseInterceptingReader) parseResponses() []byte {
 		iterations++
 
 		// Try to find a complete JSON object in the buffer
-		jsonObj, remaining, found := extractJSONObject(rir.buffer)
+		jsonObj, remaining, found := utils.ExtractJSONRPCMessage(rir.buffer)
 		if !found {
 			// No complete JSON object found, wait for more data
 			break
@@ -155,26 +159,26 @@ func (rir *responseInterceptingReader) parseResponses() []byte {
 
 		// Safety check: ensure we're making progress
 		if len(remaining) >= len(rir.buffer) {
-			log.Printf("%s No progress in buffer parsing, breaking to prevent infinite loop", rir.name)
+			log.Printf("%s No progress in buffer parsing, breaking to prevent infinite loop", rir.logPrefix)
 			break
 		}
 
 		// Update buffer to remaining data
 		rir.buffer = remaining
 
-		// ENHANCED DEBUG: Track ALL responses with unique IDs
+		// Track ALL responses with unique IDs
 		rir.allResponseCount++
 		responseNum := rir.allResponseCount
 
 		jsonStr := string(jsonObj)
-		log.Printf("%s RESPONSE #%d (%d bytes): %s", rir.name, responseNum, len(jsonObj), jsonStr[:min(150, len(jsonStr))])
+		log.Printf("%s RESPONSE #%d (%d bytes): %s", rir.logPrefix, responseNum, len(jsonObj), jsonStr[:utils.Min(150, len(jsonStr))])
 
 		// DEBUG: Log ALL complete JSON objects to catch missed stackTrace responses
 		if strings.Contains(strings.ToLower(jsonStr), "stackframe") {
 			rir.stackFrameDataCount++
 			globalCount := rir.stackFrameDataCount
 
-			log.Printf("%s DETECTED POTENTIAL STACKTRACE DATA #%d (Response #%d): %s", rir.name, globalCount, responseNum, jsonStr[:min(400, len(jsonStr))])
+			log.Printf("%s DETECTED POTENTIAL STACKTRACE DATA #%d (Response #%d): %s", rir.logPrefix, globalCount, responseNum, jsonStr[:utils.Min(400, len(jsonStr))])
 		}
 
 		// DEBUG: Log ANY response that might contain location information
@@ -182,24 +186,24 @@ func (rir *responseInterceptingReader) parseResponses() []byte {
 			strings.Contains(strings.ToLower(jsonStr), "file") ||
 			strings.Contains(strings.ToLower(jsonStr), "location") ||
 			strings.Contains(strings.ToLower(jsonStr), "source") {
-			log.Printf("%s LOCATION INFO DETECTED in Response #%d: %s", rir.name, responseNum, jsonStr[:min(300, len(jsonStr))])
+			log.Printf("%s LOCATION INFO DETECTED in Response #%d: %s", rir.logPrefix, responseNum, jsonStr[:utils.Min(300, len(jsonStr))])
 		}
 
-		// Parse JSON-RPC response only (DAP support removed)
-		var resp JSONRPCResponse
+		// Parse JSON-RPC response only
+		var resp utils.JSONRPCResponse
 		if err := json.Unmarshal(jsonObj, &resp); err == nil {
-			normalizedID := normalizeID(resp.ID)
+			normalizedID := utils.NormalizeID(resp.ID)
 
 			// Process internal auto-stepping responses before filtering them out
-			log.Printf("%s RESPONSE ID CHECK: %s (isAutoStepInternal: %v)", rir.name, normalizedID, rir.isAutoStepInternalResponse(normalizedID))
+			log.Printf("%s RESPONSE ID CHECK: %s (isAutoStepInternal: %v)", rir.logPrefix, normalizedID, rir.isAutoStepInternalResponse(normalizedID))
 			if rir.isAutoStepInternalResponse(normalizedID) {
-				log.Printf("%s PROCESSING AUTO-STEP INTERNAL RESPONSE: ID %s before filtering", rir.name, normalizedID)
-				log.Printf("%s RESPONSE TIMING: Response %s received at %v", rir.name, normalizedID, time.Now())
+				log.Printf("%s PROCESSING AUTO-STEP INTERNAL RESPONSE: ID %s before filtering", rir.logPrefix, normalizedID)
+				log.Printf("%s RESPONSE TIMING: Response %s received at %v", rir.logPrefix, normalizedID, time.Now())
 
 				// Update our stored location from the step response before filtering
 				rir.storeCurrentLocationFromCommandResponse(jsonObj)
 
-				log.Printf("%s FILTERING AUTO-STEP INTERNAL RESPONSE: ID %s (not forwarding to GoLand)", rir.name, normalizedID)
+				log.Printf("%s FILTERING AUTO-STEP INTERNAL RESPONSE: ID %s (not forwarding to GoLand)", rir.logPrefix, normalizedID)
 				return nil // Don't forward to client
 			}
 
@@ -212,22 +216,22 @@ func (rir *responseInterceptingReader) parseResponses() []byte {
 			rir.mapMutex.Unlock()
 
 			log.Printf("%s JSON-RPC ANALYSIS: Response #%d - ID:%v, method:%s, hasMethod:%v",
-				rir.name, responseNum, resp.ID, method, hasMethod)
+				rir.logPrefix, responseNum, resp.ID, method, hasMethod)
 
-			// COMPREHENSIVE STACKTRACE DETECTION - check both tracked method and actual content
+			// check both tracked method and actual content
 			isStackTraceByMethod := hasMethod && method == "RPCServer.Stacktrace"
 			isStackTraceByContent := strings.Contains(strings.ToLower(jsonStr), "locations") &&
 				strings.Contains(strings.ToLower(jsonStr), "file") &&
 				strings.Contains(strings.ToLower(jsonStr), "line")
 
 			if isStackTraceByMethod || isStackTraceByContent {
-				log.Printf("%s *** JSON-RPC STACKTRACE DETECTED! Response #%d ***", rir.name, responseNum)
-				log.Printf("%s Detection method: byMethod=%v, byContent=%v", rir.name, isStackTraceByMethod, isStackTraceByContent)
+				log.Printf("%s *** JSON-RPC STACKTRACE DETECTED! Response #%d ***", rir.logPrefix, responseNum)
+				log.Printf("%s Detection method: byMethod=%v, byContent=%v", rir.logPrefix, isStackTraceByMethod, isStackTraceByContent)
 
 				if isStackTraceByMethod {
-					log.Printf("%s *** INTERCEPTING STACKTRACE RESPONSE (tracked) ***", rir.name)
+					log.Printf("%s *** INTERCEPTING STACKTRACE RESPONSE (tracked) ***", rir.logPrefix)
 				} else {
-					log.Printf("%s *** INTERCEPTING STACKTRACE RESPONSE (content-detected) ***", rir.name)
+					log.Printf("%s *** INTERCEPTING STACKTRACE RESPONSE (content-detected) ***", rir.logPrefix)
 				}
 
 				rir.logStacktraceResponse(string(jsonObj))
@@ -235,178 +239,74 @@ func (rir *responseInterceptingReader) parseResponses() []byte {
 				// Filter the stacktrace and return modified response
 				filteredResponse := rir.filterStacktraceResponse(jsonObj, remaining)
 				if filteredResponse != nil {
-					log.Printf("%s *** RETURNING FILTERED JSON-RPC STACKTRACE Response #%d TO CLIENT ***", rir.name, responseNum, len(filteredResponse))
+					log.Printf("%s *** RETURNING FILTERED JSON-RPC STACKTRACE Response #%d TO CLIENT ***", rir.logPrefix, responseNum)
 					return filteredResponse
 				}
-				log.Printf("%s *** END JSON-RPC STACKTRACE Response #%d ***", rir.name, responseNum)
+				log.Printf("%s *** END JSON-RPC STACKTRACE Response #%d ***", rir.logPrefix, responseNum)
 			} else {
 				// Non-stacktrace JSON-RPC response
 				if hasMethod {
-					log.Printf("%s RPC Response #%d for %s (ID: %v)", rir.name, responseNum, method, resp.ID)
+					log.Printf("%s RPC Response #%d for %s (ID: %v)", rir.logPrefix, responseNum, method, resp.ID)
 				} else {
-					log.Printf("%s RPC Response #%d for unknown method (ID: %v, type: %T)", rir.name, responseNum, resp.ID, resp.ID)
+					log.Printf("%s RPC Response #%d for unknown method (ID: %v, type: %T)", rir.logPrefix, responseNum, resp.ID, resp.ID)
 				}
 			}
 
-			// Special handling for Command responses - implement auto-stepping when user steps into adapter code
+			// Special handling for Command responses - implement auto-stepping when the user steps into adapter code
 			if hasMethod && strings.HasPrefix(method, "RPCServer.Command.") {
-				log.Printf("%s *** COMMAND RESPONSE DETECTED! Response #%d (method: %s) ***", rir.name, responseNum, method)
+				log.Printf("%s *** COMMAND RESPONSE DETECTED! Response #%d (method: %s) ***", rir.logPrefix, responseNum, method)
 
 				// Store current location from Command response for state tracking
 				rir.storeCurrentLocationFromCommandResponse(jsonObj)
 
 				// Check if user stepped into adapter code (sentinel breakpoint detection)
 				if rir.isCommandResponseAtSentinelBreakpoint(jsonObj) {
-					log.Printf("%s USER STEPPED INTO ADAPTER CODE!", rir.name)
-					log.Printf("%s AUTO-STEPPING: Automatically stepping through adapter code back to workflow", rir.name)
+					log.Printf("%s USER STEPPED INTO ADAPTER CODE!", rir.logPrefix)
+					log.Printf("%s AUTO-STEPPING: Automatically stepping through adapter code back to workflow", rir.logPrefix)
 
 					// Perform auto-stepping through adapter code and return the final workflow location
 					finalResponse := rir.performDirectAutoStepping(jsonObj, remaining, responseNum, normalizedID)
 					if finalResponse != nil {
-						log.Printf("%s *** AUTO-STEP COMPLETE: Returning user to workflow code ***", rir.name)
+						log.Printf("%s *** AUTO-STEP COMPLETE: Returning user to workflow code ***", rir.logPrefix)
 						return finalResponse
 					} else {
-						log.Printf("%s AUTO-STEP: Suppressed adapter code response, stepping to workflow", rir.name)
+						log.Printf("%s AUTO-STEP: Suppressed adapter code response, stepping to workflow", rir.logPrefix)
 						return nil // CRITICAL: Return nil to suppress the adapter code response
 					}
 				}
 
-				log.Printf("%s Step-over completed in user code, forwarding normal response to GoLand", rir.name)
+				log.Printf("%s Step-over completed in user code, forwarding normal response to GoLand", rir.logPrefix)
 			}
 
 			// Special handling for State responses
 			if hasMethod && method == "RPCServer.State" {
-				log.Printf("%s *** INTERCEPTING STATE RESPONSE #%d ***", rir.name, responseNum)
+				log.Printf("%s *** INTERCEPTING STATE RESPONSE #%d ***", rir.logPrefix, responseNum)
 				rir.logStateResponse(string(jsonObj))
 			}
 
 			if resp.Error != nil {
 				if hasMethod {
-					log.Printf("%s RPC Error Response #%d for %s (ID: %v): %v", rir.name, responseNum, method, resp.ID, resp.Error)
+					log.Printf("%s RPC Error Response #%d for %s (ID: %v): %v", rir.logPrefix, responseNum, method, resp.ID, resp.Error)
 				} else {
-					log.Printf("%s RPC Error Response #%d for unknown method (ID: %v): %v", rir.name, responseNum, resp.ID, resp.Error)
+					log.Printf("%s RPC Error Response #%d for unknown method (ID: %v): %v", rir.logPrefix, responseNum, resp.ID, resp.Error)
 				}
 			}
 		} else {
-			// Fall back to JSON-RPC response
-			var resp JSONRPCResponse
-			if err := json.Unmarshal(jsonObj, &resp); err == nil {
-				normalizedID := normalizeID(resp.ID)
-
-				// Process internal auto-stepping responses before filtering them out
-				log.Printf("%s FALLBACK RESPONSE ID CHECK: %s (isAutoStepInternal: %v)", rir.name, normalizedID, rir.isAutoStepInternalResponse(normalizedID))
-				if rir.isAutoStepInternalResponse(normalizedID) {
-					log.Printf("%s PROCESSING AUTO-STEP INTERNAL RESPONSE: ID %s before filtering", rir.name, normalizedID)
-					log.Printf("%s RESPONSE TIMING: Response %s received at %v", rir.name, normalizedID, time.Now())
-
-					// Update our stored location from the step response before filtering
-					rir.storeCurrentLocationFromCommandResponse(jsonObj)
-
-					log.Printf("%s FILTERING AUTO-STEP INTERNAL RESPONSE: ID %s (not forwarding to GoLand)", rir.name, normalizedID)
-					return nil // Don't forward to client
-				}
-
-				// Check which method this response corresponds to
-				rir.mapMutex.Lock()
-				method, hasMethod := rir.requestMethodMap[normalizedID]
-				if hasMethod {
-					delete(rir.requestMethodMap, normalizedID) // Clean up
-				}
-				rir.mapMutex.Unlock()
-
-				log.Printf("%s JSON-RPC ANALYSIS: Response #%d - ID:%v, method:%s, hasMethod:%v",
-					rir.name, responseNum, resp.ID, method, hasMethod)
-
-				// COMPREHENSIVE STACKTRACE DETECTION - check both tracked method and actual content
-				isStackTraceByMethod := hasMethod && method == "RPCServer.Stacktrace"
-				isStackTraceByContent := strings.Contains(strings.ToLower(jsonStr), "locations") &&
-					strings.Contains(strings.ToLower(jsonStr), "file") &&
-					strings.Contains(strings.ToLower(jsonStr), "line")
-
-				if isStackTraceByMethod || isStackTraceByContent {
-					log.Printf("%s *** JSON-RPC STACKTRACE DETECTED! Response #%d ***", rir.name, responseNum)
-					log.Printf("%s Detection method: byMethod=%v, byContent=%v", rir.name, isStackTraceByMethod, isStackTraceByContent)
-
-					if isStackTraceByMethod {
-						log.Printf("%s *** INTERCEPTING STACKTRACE RESPONSE (tracked) ***", rir.name)
-					} else {
-						log.Printf("%s *** INTERCEPTING STACKTRACE RESPONSE (content-detected) ***", rir.name)
-					}
-
-					rir.logStacktraceResponse(string(jsonObj))
-
-					// Filter the stacktrace and return modified response
-					filteredResponse := rir.filterStacktraceResponse(jsonObj, remaining)
-					if filteredResponse != nil {
-						log.Printf("%s *** RETURNING FILTERED JSON-RPC STACKTRACE Response #%d TO CLIENT ***", rir.name, responseNum, len(filteredResponse))
-						return filteredResponse
-					}
-					log.Printf("%s *** END JSON-RPC STACKTRACE Response #%d ***", rir.name, responseNum)
-				} else {
-					// Non-stacktrace JSON-RPC response
-					if hasMethod {
-						log.Printf("%s RPC Response #%d for %s (ID: %v)", rir.name, responseNum, method, resp.ID)
-					} else {
-						log.Printf("%s RPC Response #%d for unknown method (ID: %v, type: %T)", rir.name, responseNum, resp.ID, resp.ID)
-					}
-				}
-
-				// Special handling for Command responses - implement auto-stepping when user steps into adapter code
-				if hasMethod && strings.HasPrefix(method, "RPCServer.Command.") {
-					log.Printf("%s *** COMMAND RESPONSE DETECTED! Response #%d (method: %s) ***", rir.name, responseNum, method)
-
-					// Store current location from Command response for state tracking
-					rir.storeCurrentLocationFromCommandResponse(jsonObj)
-
-					// Check if user stepped into adapter code (sentinel breakpoint detection)
-					if rir.isCommandResponseAtSentinelBreakpoint(jsonObj) {
-						log.Printf("%s USER STEPPED INTO ADAPTER CODE!", rir.name)
-						log.Printf("%s AUTO-STEPPING: Automatically stepping through adapter code back to workflow", rir.name)
-
-						// Perform auto-stepping through adapter code and return the final workflow location
-						finalResponse := rir.performDirectAutoStepping(jsonObj, remaining, responseNum, normalizedID)
-						if finalResponse != nil {
-							log.Printf("%s *** AUTO-STEP COMPLETE: Returning user to workflow code ***", rir.name)
-							return finalResponse
-						} else {
-							log.Printf("%s AUTO-STEP: Suppressed adapter code response, stepping to workflow", rir.name)
-							return nil // CRITICAL: Return nil to suppress the adapter code response
-						}
-					}
-
-					log.Printf("%s Step-over completed in user code, forwarding normal response to GoLand", rir.name)
-				}
-
-				// Special handling for State responses
-				if hasMethod && method == "RPCServer.State" {
-					log.Printf("%s *** INTERCEPTING STATE RESPONSE #%d ***", rir.name, responseNum)
-					rir.logStateResponse(string(jsonObj))
-				}
-
-				if resp.Error != nil {
-					if hasMethod {
-						log.Printf("%s RPC Error Response #%d for %s (ID: %v): %v", rir.name, responseNum, method, resp.ID, resp.Error)
-					} else {
-						log.Printf("%s RPC Error Response #%d for unknown method (ID: %v): %v", rir.name, responseNum, resp.ID, resp.Error)
-					}
-				}
-			} else {
-				log.Printf("%s UNPARSEABLE Response #%d (tried both DAP and JSON-RPC): %v", rir.name, responseNum, err)
-				log.Printf("%s Raw data: %s", rir.name, jsonStr[:min(200, len(jsonStr))])
-			}
+			log.Printf("%s Failed to parse response as JSONRPC Response #%d : %v", rir.logPrefix, responseNum, err)
+			log.Printf("%s Raw data: %s", rir.logPrefix, jsonStr[:utils.Min(200, len(jsonStr))])
 		}
 	}
 
 	// Check if we hit the iteration limit
 	if iterations >= maxIterations {
-		log.Printf("%s Reached maximum iterations (%d) in parseResponses, buffer length: %d", rir.name, maxIterations, len(rir.buffer))
+		log.Printf("%s Reached maximum iterations (%d) in parseResponses, buffer length: %d", rir.logPrefix, maxIterations, len(rir.buffer))
 	}
 
 	return nil // No modifications needed
 }
 
-func (rir *responseInterceptingReader) filterStacktraceResponse(jsonObj []byte, remaining []byte) []byte {
-	var response JSONRPCResponse
+func (rir *ResponseInterceptingReader) filterStacktraceResponse(jsonObj []byte, remaining []byte) []byte {
+	var response utils.JSONRPCResponse
 	if err := json.Unmarshal(jsonObj, &response); err != nil {
 		log.Printf("[%s] Failed to parse JSON-RPC response for filtering: %v", rir.clientAddr, err)
 		return nil
@@ -435,12 +335,12 @@ func (rir *responseInterceptingReader) filterStacktraceResponse(jsonObj []byte, 
 	// and keep all frames from 0 up to and including that frame (this includes user code in other files)
 	filteredLocations := stacktraceOut.Locations
 	userCodeFrameIndex := -1
-	workingDir := getCurrentWorkingDir()
+	workingDir := utils.Pwd()
 
 	// Find the LAST/DEEPEST occurrence of user code (highest index) - this is the actual user entry point
 	for i := len(stacktraceOut.Locations) - 1; i >= 0; i-- {
 		frame := stacktraceOut.Locations[i]
-		if rir.isUserCodeFile(frame.File, workingDir) {
+		if utils.IsUserCodeFile(frame.File, workingDir) {
 			userCodeFrameIndex = i
 			break // Found the deepest user code frame
 		}
@@ -510,8 +410,8 @@ func (rir *responseInterceptingReader) filterStacktraceResponse(jsonObj []byte, 
 	return modifiedBuffer
 }
 
-func (rir *responseInterceptingReader) logStacktraceResponse(jsonLine string) {
-	var response JSONRPCResponse
+func (rir *ResponseInterceptingReader) logStacktraceResponse(jsonLine string) {
+	var response utils.JSONRPCResponse
 	if err := json.Unmarshal([]byte(jsonLine), &response); err != nil {
 		log.Printf("[%s] Failed to parse JSON-RPC response: %v", rir.clientAddr, err)
 		return
@@ -533,7 +433,7 @@ func (rir *responseInterceptingReader) logStacktraceResponse(jsonLine string) {
 	// Get goroutine ID from the original request if available
 	var goroutineID interface{} = "unknown"
 	rir.mapMutex.Lock()
-	if reqMethod, ok := rir.requestMethodMap[normalizeID(response.ID)]; ok {
+	if reqMethod, ok := rir.requestMethodMap[utils.NormalizeID(response.ID)]; ok {
 		if reqMethod == "RPCServer.Stacktrace" {
 			// For now, we'll just show "unknown" since we don't parse the request params
 			// Could be enhanced to parse the request parameters to get the actual goroutine ID
@@ -544,25 +444,17 @@ func (rir *responseInterceptingReader) logStacktraceResponse(jsonLine string) {
 	rir.logStacktraceResponseDetails(stacktraceOut, goroutineID)
 }
 
-func (rir *responseInterceptingReader) logDebuggingSummary() {
+func (rir *ResponseInterceptingReader) LogDebuggingSummary() {
 	totalResponses := rir.allResponseCount
 	totalStackFrames := rir.stackFrameDataCount
-	totalStackTraces := rir.stackTraceCount
 
 	log.Printf("[%s] DEBUGGING SUMMARY (Client Disconnected):", rir.clientAddr)
 	log.Printf("[%s]   Total Responses: %d", rir.clientAddr, totalResponses)
 	log.Printf("[%s]   Total Stack Frames in Responses: %d", rir.clientAddr, totalStackFrames)
-	log.Printf("[%s]   Total Stack Traces Detected: %d", rir.clientAddr, totalStackTraces)
-
-	// Check for potential missed stackTrace responses
-	if totalStackFrames > totalStackTraces {
-		log.Printf("[%s] Potential missed stackTrace responses detected! (Total Frames: %d, Detected Traces: %d)", rir.clientAddr, totalStackFrames, totalStackTraces)
-		log.Printf("[%s]    This might indicate that stackTrace requests were not intercepted or filtered correctly.")
-	}
 }
 
-func (rir *responseInterceptingReader) logStateResponse(jsonLine string) {
-	var resp JSONRPCResponse
+func (rir *ResponseInterceptingReader) logStateResponse(jsonLine string) {
+	var resp utils.JSONRPCResponse
 	if err := json.Unmarshal([]byte(jsonLine), &resp); err != nil {
 		log.Printf("[%s] Failed to parse JSON-RPC response: %v", rir.clientAddr, err)
 		return
@@ -598,7 +490,7 @@ func (rir *responseInterceptingReader) logStateResponse(jsonLine string) {
 		rir.currentFile = stateOut.State.CurrentThread.File
 		rir.currentLine = stateOut.State.CurrentThread.Line
 
-		// Try multiple approaches to get function name
+		// Try multiple approaches to get function logPrefix
 		rir.currentFunction = ""
 
 		// Method 1: Try from breakpoint info stacktrace
@@ -607,7 +499,7 @@ func (rir *responseInterceptingReader) logStateResponse(jsonLine string) {
 			topFrame := stateOut.State.CurrentThread.BreakpointInfo.Stacktrace[0]
 			if topFrame.Function != nil {
 				rir.currentFunction = topFrame.Function.Name()
-				log.Printf("%s Function from BreakpointInfo.Stacktrace: %s", rir.name, rir.currentFunction)
+				log.Printf("%s Function from BreakpointInfo.Stacktrace: %s", rir.logPrefix, rir.currentFunction)
 			}
 		}
 
@@ -615,7 +507,7 @@ func (rir *responseInterceptingReader) logStateResponse(jsonLine string) {
 		if rir.currentFunction == "" && stateOut.State.SelectedGoroutine != nil {
 			if stateOut.State.SelectedGoroutine.CurrentLoc.Function != nil {
 				rir.currentFunction = stateOut.State.SelectedGoroutine.CurrentLoc.Function.Name()
-				log.Printf("%s Function from SelectedGoroutine.CurrentLoc: %s", rir.name, rir.currentFunction)
+				log.Printf("%s Function from SelectedGoroutine.CurrentLoc: %s", rir.logPrefix, rir.currentFunction)
 			}
 		}
 
@@ -623,13 +515,13 @@ func (rir *responseInterceptingReader) logStateResponse(jsonLine string) {
 		if rir.currentFunction == "" {
 			if strings.Contains(rir.currentFile, "replayer-adapter/replayer.go") && rir.currentLine >= 100 && rir.currentLine <= 110 {
 				rir.currentFunction = "adapter_go.notifyRunner"
-				log.Printf("%s 🔍 Function inferred from location: %s", rir.name, rir.currentFunction)
+				log.Printf("%s 🔍 Function inferred from location: %s", rir.logPrefix, rir.currentFunction)
 			}
 		}
 
 		rir.stateMutex.Unlock()
 
-		log.Printf("%s CURRENT LOCATION STORED: %s:%d (%s)", rir.name, rir.currentFile, rir.currentLine, rir.currentFunction)
+		log.Printf("%s CURRENT LOCATION STORED: %s:%d (%s)", rir.logPrefix, rir.currentFile, rir.currentLine, rir.currentFunction)
 	}
 
 	// Log detailed state information
@@ -686,7 +578,7 @@ func (rir *responseInterceptingReader) logStateResponse(jsonLine string) {
 }
 
 // logStacktraceResponseDetails logs detailed information about a Stacktrace RPC response
-func (rir *responseInterceptingReader) logStacktraceResponseDetails(stacktraceOut rpc2.StacktraceOut, goroutineID interface{}) {
+func (rir *ResponseInterceptingReader) logStacktraceResponseDetails(stacktraceOut rpc2.StacktraceOut, goroutineID interface{}) {
 	log.Printf("[%s] === STACKTRACE INTERCEPTION ===", rir.clientAddr)
 
 	if len(stacktraceOut.Locations) == 0 {
@@ -699,10 +591,10 @@ func (rir *responseInterceptingReader) logStacktraceResponseDetails(stacktraceOu
 	userCodeFrameIndex := -1
 
 	// Get working directory (you may need to pass this in or get it from context)
-	workingDir := getCurrentWorkingDir() // This function needs to be implemented
+	workingDir := utils.Pwd() // This function needs to be implemented
 
 	for i, frame := range stacktraceOut.Locations {
-		if rir.isUserCodeFile(frame.File, workingDir) {
+		if utils.IsUserCodeFile(frame.File, workingDir) {
 			userCodeFrameIndex = i
 			filteredLocations = stacktraceOut.Locations[i:]
 			break
@@ -793,8 +685,8 @@ func (rir *responseInterceptingReader) logStacktraceResponseDetails(stacktraceOu
 	log.Printf("[%s] === END STACKTRACE INTERCEPTION ===", rir.clientAddr)
 }
 
-// isNotifyRunnerFunction checks if a function name matches the adapter_go.notifyRunner pattern
-func (rir *responseInterceptingReader) isNotifyRunnerFunction(functionName string) bool {
+// isNotifyRunnerFunction checks if a function logPrefix matches the adapter_go.notifyRunner pattern
+func (rir *ResponseInterceptingReader) isNotifyRunnerFunction(functionName string) bool {
 	// Check for various patterns of adapter_go.notifyRunner
 	return functionName == "adapter_go.notifyRunner" ||
 		functionName == "(*adapter_go).notifyRunner" ||
@@ -805,33 +697,8 @@ func (rir *responseInterceptingReader) isNotifyRunnerFunction(functionName strin
 			functionName[len(functionName)-len("adapter_go.notifyRunner"):] == "adapter_go.notifyRunner")
 }
 
-// isInAdapterCodeByPath checks if a file path is in adapter code
-func (rir *responseInterceptingReader) isInAdapterCodeByPath(filePath string) bool {
-	if filePath == "" {
-		return false
-	}
-
-	// Check if this is user code (should NOT be considered adapter code)
-	workingDir := getCurrentWorkingDir()
-	if rir.isUserCodeFile(filePath, workingDir) {
-		return false
-	}
-
-	// Check for adapter code patterns in the file path
-	return strings.Contains(filePath, "replayer-adapter/") ||
-		strings.Contains(filePath, "replayer.go") ||
-		strings.Contains(filePath, "outbound_interceptor.go") ||
-		strings.Contains(filePath, "inbound_interceptor.go") ||
-		// ALL Temporal SDK code (both versioned and non-versioned paths)
-		strings.Contains(filePath, "go.temporal.io/sdk/") ||
-		strings.Contains(filePath, "go.temporal.io/sdk@") ||
-		// Other Go runtime/reflection code that might be encountered
-		strings.Contains(filePath, "/runtime/") ||
-		strings.Contains(filePath, "/reflect/")
-}
-
 // isAutoStepInternalResponse checks if this is an internal auto-stepping response (90xxx or 99xxx range)
-func (rir *responseInterceptingReader) isAutoStepInternalResponse(responseID string) bool {
+func (rir *ResponseInterceptingReader) isAutoStepInternalResponse(responseID string) bool {
 	// Auto-stepping uses IDs in the range 90000-90999 (direct) and 99000-99999 (legacy)
 	if len(responseID) >= 5 && (responseID[:2] == "90" || responseID[:2] == "99") {
 		// Convert to int to validate it's in the expected range
@@ -842,7 +709,7 @@ func (rir *responseInterceptingReader) isAutoStepInternalResponse(responseID str
 
 	// Also filter autostep_* responses from legacy auto-stepping
 	if strings.HasPrefix(responseID, "autostep_") {
-		log.Printf("%s FILTERING LEGACY AUTO-STEP RESPONSE: ID %s", rir.name, responseID)
+		log.Printf("%s FILTERING LEGACY AUTO-STEP RESPONSE: ID %s", rir.logPrefix, responseID)
 		return true
 	}
 
@@ -850,10 +717,10 @@ func (rir *responseInterceptingReader) isAutoStepInternalResponse(responseID str
 }
 
 // storeCurrentLocationFromCommandResponse extracts and stores current location from Command response
-func (rir *responseInterceptingReader) storeCurrentLocationFromCommandResponse(jsonObj []byte) {
-	var response JSONRPCResponse
+func (rir *ResponseInterceptingReader) storeCurrentLocationFromCommandResponse(jsonObj []byte) {
+	var response utils.JSONRPCResponse
 	if err := json.Unmarshal(jsonObj, &response); err != nil {
-		log.Printf("%s ❌ Failed to parse Command response for location storage: %v", rir.name, err)
+		log.Printf("%s ❌ Failed to parse Command response for location storage: %v", rir.logPrefix, err)
 		return
 	}
 
@@ -862,7 +729,7 @@ func (rir *responseInterceptingReader) storeCurrentLocationFromCommandResponse(j
 		return
 	}
 
-	// Convert result to check current location
+	// Convert the result to check current location
 	resultBytes, err := json.Marshal(response.Result)
 	if err != nil {
 		return
@@ -894,7 +761,7 @@ func (rir *responseInterceptingReader) storeCurrentLocationFromCommandResponse(j
 			topFrame := commandOut.State.CurrentThread.BreakpointInfo.Stacktrace[0]
 			if topFrame.Function != nil {
 				rir.currentFunction = topFrame.Function.Name()
-				log.Printf("%s 🔍 Function from BreakpointInfo.Stacktrace: %s", rir.name, rir.currentFunction)
+				log.Printf("%s 🔍 Function from BreakpointInfo.Stacktrace: %s", rir.logPrefix, rir.currentFunction)
 			}
 		}
 
@@ -902,30 +769,31 @@ func (rir *responseInterceptingReader) storeCurrentLocationFromCommandResponse(j
 		if rir.currentFunction == "" && commandOut.State.SelectedGoroutine != nil {
 			if commandOut.State.SelectedGoroutine.CurrentLoc.Function != nil {
 				rir.currentFunction = commandOut.State.SelectedGoroutine.CurrentLoc.Function.Name()
-				log.Printf("%s 🔍 Function from SelectedGoroutine.CurrentLoc: %s", rir.name, rir.currentFunction)
+				log.Printf("%s 🔍 Function from SelectedGoroutine.CurrentLoc: %s", rir.logPrefix, rir.currentFunction)
 			}
 		}
 
 		// Method 3: Fallback - derive function from file location
 		if rir.currentFunction == "" {
+			// TODO:
 			if strings.Contains(rir.currentFile, "replayer-adapter/replayer.go") && rir.currentLine >= 100 && rir.currentLine <= 110 {
 				rir.currentFunction = "adapter_go.notifyRunner"
-				log.Printf("%s Function inferred from location: %s", rir.name, rir.currentFunction)
+				log.Printf("%s Function inferred from location: %s", rir.logPrefix, rir.currentFunction)
 			}
 		}
 
 		rir.stateMutex.Unlock()
 
-		log.Printf("%s COMMAND LOCATION STORED: %s:%d (%s)", rir.name, rir.currentFile, rir.currentLine, rir.currentFunction)
+		log.Printf("%s COMMAND LOCATION STORED: %s:%d (%s)", rir.logPrefix, rir.currentFile, rir.currentLine, rir.currentFunction)
 	}
 }
 
 // isCommandResponseAtSentinelBreakpoint checks if a Command response shows we've stopped at a sentinel breakpoint
 // This now detects ANY step-over that lands in adapter code, not just specific notifyRunner function
-func (rir *responseInterceptingReader) isCommandResponseAtSentinelBreakpoint(jsonObj []byte) bool {
-	var response JSONRPCResponse
+func (rir *ResponseInterceptingReader) isCommandResponseAtSentinelBreakpoint(jsonObj []byte) bool {
+	var response utils.JSONRPCResponse
 	if err := json.Unmarshal(jsonObj, &response); err != nil {
-		log.Printf("%s ❌ Failed to parse Command response for sentinel check: %v", rir.name, err)
+		log.Printf("%s ❌ Failed to parse Command response for sentinel check: %v", rir.logPrefix, err)
 		return false
 	}
 
@@ -958,44 +826,44 @@ func (rir *responseInterceptingReader) isCommandResponseAtSentinelBreakpoint(jso
 
 	currentFile := commandOut.State.CurrentThread.File
 	currentLine := commandOut.State.CurrentThread.Line
-	currentFunction := ""
-
-	// Get function name if available from breakpoint info
-	if commandOut.State.CurrentThread.BreakpointInfo != nil &&
-		len(commandOut.State.CurrentThread.BreakpointInfo.Stacktrace) > 0 {
-		topFrame := commandOut.State.CurrentThread.BreakpointInfo.Stacktrace[0]
-		if topFrame.Function != nil {
-			currentFunction = topFrame.Function.Name()
-		}
-	}
-
-	// Fallback: try to get function from SelectedGoroutine
-	if currentFunction == "" && commandOut.State.SelectedGoroutine != nil &&
-		commandOut.State.SelectedGoroutine.CurrentLoc.Function != nil {
-		currentFunction = commandOut.State.SelectedGoroutine.CurrentLoc.Function.Name()
-	}
+	// currentFunction := ""
+	//
+	// // Get function logPrefix if available from breakpoint info
+	// if commandOut.State.CurrentThread.BreakpointInfo != nil &&
+	// 	len(commandOut.State.CurrentThread.BreakpointInfo.Stacktrace) > 0 {
+	// 	topFrame := commandOut.State.CurrentThread.BreakpointInfo.Stacktrace[0]
+	// 	if topFrame.Function != nil {
+	// 		currentFunction = topFrame.Function.Name()
+	// 	}
+	// }
+	//
+	// // Fallback: try to get function from SelectedGoroutine
+	// if currentFunction == "" && commandOut.State.SelectedGoroutine != nil &&
+	// 	commandOut.State.SelectedGoroutine.CurrentLoc.Function != nil {
+	// 	currentFunction = commandOut.State.SelectedGoroutine.CurrentLoc.Function.Name()
+	// }
 
 	// ENHANCED SENTINEL DETECTION: Check if we've stepped into ANY adapter code
 	// This includes replayer-adapter/, Temporal SDK code, or any non-workflow code
-	isInAdapter := rir.isInAdapterCodeByPath(currentFile)
+	isInAdapter := utils.IsInAdapterCodeByPath(currentFile)
 
 	if isInAdapter {
-		log.Printf("%s SENTINEL DETECTED (ADAPTER CODE): %s:%d in %s", rir.name, currentFile, currentLine, currentFunction)
-		log.Printf("%s User stepped into adapter code - will auto-step back to workflow", rir.name)
+		log.Printf("%s SENTINEL DETECTED (ADAPTER CODE): %s:%d", rir.logPrefix, currentFile, currentLine)
+		log.Printf("%s User stepped into adapter code - will auto-step back to workflow", rir.logPrefix)
 	} else {
-		log.Printf("%s Command response in workflow code: %s:%d in %s", rir.name, currentFile, currentLine, currentFunction)
+		log.Printf("%s Command response in workflow code: %s:%d", rir.logPrefix, currentFile, currentLine)
 	}
 
 	return isInAdapter
 }
 
 // performDirectAutoStepping performs direct step-over commands to Delve until reaching workflow code
-func (rir *responseInterceptingReader) performDirectAutoStepping(jsonObj []byte, remaining []byte, responseNum int, responseID string) []byte {
-	log.Printf("%s AUTO-STEP: User stepped into adapter code - automatically stepping back to workflow", rir.name)
-	log.Printf("%s AUTO-STEP: Starting direct communication with Delve to step through adapter code", rir.name)
+func (rir *ResponseInterceptingReader) performDirectAutoStepping(jsonObj []byte, remaining []byte, responseNum int, responseID string) []byte {
+	log.Printf("%s AUTO-STEP: User stepped into adapter code - automatically stepping back to workflow", rir.logPrefix)
+	log.Printf("%s AUTO-STEP: Starting direct communication with Delve to step through adapter code", rir.logPrefix)
 
 	if rir.delveClient == nil {
-		log.Printf("%s AUTO-STEP: No Delve client available", rir.name)
+		log.Printf("%s AUTO-STEP: No Delve client available", rir.logPrefix)
 		return nil
 	}
 
@@ -1006,14 +874,14 @@ func (rir *responseInterceptingReader) performDirectAutoStepping(jsonObj []byte,
 	// Extract starting location from current response for logging
 	var startFile, startFunction string
 	var startLine int
-	if response := extractLocationFromCommandResponse(jsonObj); response != nil {
+	if response := utils.ExtractLocationFromCommandResponse(jsonObj); response != nil {
 		startFile = response.File
 		startLine = response.Line
 		startFunction = response.Function
 	}
 
 	// Determine the original command type to decide if we should take an extra UX step
-	// Instead of using flawed heuristics, get the actual command type from request tracking
+	// Get the actual command type from request tracking
 	rir.mapMutex.Lock()
 	storedMethod, exists := rir.requestMethodMap[responseID]
 	rir.mapMutex.Unlock()
@@ -1022,7 +890,7 @@ func (rir *responseInterceptingReader) performDirectAutoStepping(jsonObj []byte,
 	var shouldTakeExtraStep bool
 
 	if exists && strings.HasPrefix(storedMethod, "RPCServer.Command.") {
-		// Extract the actual command name from the stored method
+		// Extract the actual command logPrefix from the stored method
 		commandParts := strings.Split(storedMethod, ".")
 		if len(commandParts) >= 3 {
 			originalCommand = commandParts[2] // e.g., "next" or "continue"
@@ -1033,22 +901,22 @@ func (rir *responseInterceptingReader) performDirectAutoStepping(jsonObj []byte,
 		// Only take extra step for step-over commands (next), not continue commands
 		shouldTakeExtraStep = originalCommand == "next"
 	} else {
-		log.Printf("%s AUTO-STEP: Could not determine original command type for ID %s (stored: %s)", rir.name, responseID, storedMethod)
+		log.Printf("%s AUTO-STEP: Could not determine original command type for ID %s (stored: %s)", rir.logPrefix, responseID, storedMethod)
 		originalCommand = "unknown"
 		shouldTakeExtraStep = false // Default to safe behavior - no extra step
 	}
 
-	log.Printf("%s AUTO-STEP: Starting from adapter code: %s:%d (%s)", rir.name, startFile, startLine, startFunction)
-	log.Printf("%s AUTO-STEP: Original command: %s, will take extra UX step: %v", rir.name, originalCommand, shouldTakeExtraStep)
-	log.Printf("%s AUTO-STEP: Will step until reaching user code (working directory)", rir.name)
+	log.Printf("%s AUTO-STEP: Starting from adapter code: %s:%d (%s)", rir.logPrefix, startFile, startLine, startFunction)
+	log.Printf("%s AUTO-STEP: Original command: %s, will take extra UX step: %v", rir.logPrefix, originalCommand, shouldTakeExtraStep)
+	log.Printf("%s AUTO-STEP: Will step until reaching user code (working directory)", rir.logPrefix)
 
 	for stepCount := 1; stepCount <= maxSteps; stepCount++ {
-		log.Printf("%s AUTO-STEP: Step %d/%d - stepping through adapter code", rir.name, stepCount, maxSteps)
+		log.Printf("%s AUTO-STEP: Step %d/%d - stepping through adapter code", rir.logPrefix, stepCount, maxSteps)
 
 		// Use delve client to send step-over command
 		state, err := rir.delveClient.Next()
 		if err != nil {
-			log.Printf("%s AUTO-STEP: Failed to send step command: %v", rir.name, err)
+			log.Printf("%s AUTO-STEP: Failed to send step command: %v", rir.logPrefix, err)
 			break
 		}
 
@@ -1057,7 +925,7 @@ func (rir *responseInterceptingReader) performDirectAutoStepping(jsonObj []byte,
 
 		// Check the returned state directly
 		if state == nil || state.Running {
-			log.Printf("%s AUTO-STEP: Received nil or running state, continuing", rir.name)
+			log.Printf("%s AUTO-STEP: Received nil or running state, continuing", rir.logPrefix)
 			time.Sleep(200 * time.Millisecond) // Reduced wait time
 			continue
 		}
@@ -1092,28 +960,28 @@ func (rir *responseInterceptingReader) performDirectAutoStepping(jsonObj []byte,
 		rir.stateMutex.Unlock()
 
 		// Check if we're still in adapter code
-		isInAdapter := rir.isInAdapterCodeByPath(currentFile)
+		isInAdapter := utils.IsInAdapterCodeByPath(currentFile)
 
 		if isInAdapter {
 			log.Printf("%s AUTO-STEP: Step %d - still in adapter: %s:%d (%s)",
-				rir.name, stepCount, currentFile, currentLine, currentFunction)
+				rir.logPrefix, stepCount, currentFile, currentLine, currentFunction)
 		} else {
 			// We've reached user code!
 			duration := time.Since(startTime)
 			log.Printf("%s AUTO-STEP: SUCCESS! Reached user code after %d steps (%.2fs)",
-				rir.name, stepCount, duration.Seconds())
+				rir.logPrefix, stepCount, duration.Seconds())
 			log.Printf("%s AUTO-STEP: At user code: %s:%d (%s)",
-				rir.name, currentFile, currentLine, currentFunction)
+				rir.logPrefix, currentFile, currentLine, currentFunction)
 
 			// Take one additional step for better UX only if this was a step-over command
 			// Don't take extra step for continue commands that hit breakpoints
 			var finalState *api.DebuggerState
 			if shouldTakeExtraStep {
-				log.Printf("%s AUTO-STEP: Taking one additional step for better user experience (step-over)", rir.name)
+				log.Printf("%s AUTO-STEP: Taking one additional step for better user experience (step-over)", rir.logPrefix)
 				var err error
 				finalState, err = rir.delveClient.Next()
 				if err != nil {
-					log.Printf("%s AUTO-STEP: Failed to take final UX step: %v", rir.name, err)
+					log.Printf("%s AUTO-STEP: Failed to take final UX step: %v", rir.logPrefix, err)
 					// Use the current state as fallback
 					finalState = state
 				} else {
@@ -1122,7 +990,7 @@ func (rir *responseInterceptingReader) performDirectAutoStepping(jsonObj []byte,
 					if finalState != nil && finalState.CurrentThread != nil {
 						rir.currentFile = finalState.CurrentThread.File
 						rir.currentLine = finalState.CurrentThread.Line
-						// Try to get function name
+						// Try to get function logPrefix
 						rir.currentFunction = ""
 						if finalState.CurrentThread.BreakpointInfo != nil &&
 							len(finalState.CurrentThread.BreakpointInfo.Stacktrace) > 0 {
@@ -1142,10 +1010,10 @@ func (rir *responseInterceptingReader) performDirectAutoStepping(jsonObj []byte,
 					rir.stateMutex.Unlock()
 
 					log.Printf("%s AUTO-STEP: Final location after UX step: %s:%d (%s)",
-						rir.name, currentFile, currentLine, currentFunction)
+						rir.logPrefix, currentFile, currentLine, currentFunction)
 				}
 			} else {
-				log.Printf("%s AUTO-STEP: Skipping extra step (continue command hit breakpoint)", rir.name)
+				log.Printf("%s AUTO-STEP: Skipping extra step (continue command hit breakpoint)", rir.logPrefix)
 				finalState = state
 			}
 
@@ -1159,7 +1027,7 @@ func (rir *responseInterceptingReader) performDirectAutoStepping(jsonObj []byte,
 
 			finalResponseBytes, err := json.Marshal(finalCommandResponse)
 			if err != nil {
-				log.Printf("%s AUTO-STEP: Failed to marshal final response: %v", rir.name, err)
+				log.Printf("%s AUTO-STEP: Failed to marshal final response: %v", rir.logPrefix, err)
 				return nil
 			}
 
@@ -1169,9 +1037,9 @@ func (rir *responseInterceptingReader) performDirectAutoStepping(jsonObj []byte,
 			copy(modifiedBuffer[len(finalResponseBytes):], remaining)
 
 			if shouldTakeExtraStep {
-				log.Printf("%s AUTO-STEP: Sending final Command response to GoLand - cursor moved to show progress", rir.name)
+				log.Printf("%s AUTO-STEP: Sending final Command response to GoLand - cursor moved to show progress", rir.logPrefix)
 			} else {
-				log.Printf("%s AUTO-STEP: Sending final Command response to GoLand - stopped at breakpoint location", rir.name)
+				log.Printf("%s AUTO-STEP: Sending final Command response to GoLand - stopped at breakpoint location", rir.logPrefix)
 			}
 			return modifiedBuffer
 		}
@@ -1180,7 +1048,7 @@ func (rir *responseInterceptingReader) performDirectAutoStepping(jsonObj []byte,
 	// Reached max steps - still return what we have
 	duration := time.Since(startTime)
 	log.Printf("%s AUTO-STEP: Reached max steps (%d) after %.2fs - may still be in adapter code",
-		rir.name, maxSteps, duration.Seconds())
+		rir.logPrefix, maxSteps, duration.Seconds())
 
 	// Create a Command response with the final state for GoLand
 	finalCommandResponse := map[string]interface{}{
@@ -1192,7 +1060,7 @@ func (rir *responseInterceptingReader) performDirectAutoStepping(jsonObj []byte,
 
 	finalResponseBytes, err := json.Marshal(finalCommandResponse)
 	if err != nil {
-		log.Printf("%s AUTO-STEP: Failed to marshal final response: %v", rir.name, err)
+		log.Printf("%s AUTO-STEP: Failed to marshal final response: %v", rir.logPrefix, err)
 		return nil
 	}
 
@@ -1201,66 +1069,6 @@ func (rir *responseInterceptingReader) performDirectAutoStepping(jsonObj []byte,
 	copy(modifiedBuffer, finalResponseBytes)
 	copy(modifiedBuffer[len(finalResponseBytes):], remaining)
 
-	log.Printf("%s AUTO-STEP: Sending final Command response to GoLand (max steps reached)", rir.name)
+	log.Printf("%s AUTO-STEP: Sending final Command response to GoLand (max steps reached)", rir.logPrefix)
 	return modifiedBuffer
-}
-
-// getCurrentWorkingDir returns the current working directory
-func getCurrentWorkingDir() string {
-	wd, err := os.Getwd()
-	if err != nil {
-		log.Printf("Failed to get working directory: %v", err)
-		return ""
-	}
-	// Convert to absolute path for consistent comparison
-	absWd, err := filepath.Abs(wd)
-	if err != nil {
-		log.Printf("Failed to get absolute path for working directory: %v", err)
-		return wd
-	}
-	return absWd
-}
-
-// isUserCodeFile checks if a file path is within the user's working directory
-// and not part of framework/adapter code
-func (rir *responseInterceptingReader) isUserCodeFile(filePath, workingDir string) bool {
-	if filePath == "" || workingDir == "" {
-		return false
-	}
-
-	// Convert file path to absolute path for consistent comparison
-	absFilePath, err := filepath.Abs(filePath)
-	if err != nil {
-		log.Printf("Failed to get absolute path for %s: %v", filePath, err)
-		// Fallback to string comparison
-		absFilePath = filePath
-	}
-
-	// Check if file is within working directory
-	isInWorkingDir := strings.HasPrefix(absFilePath, workingDir)
-
-	if !isInWorkingDir {
-		// File is outside working directory - definitely not user code
-		return false
-	}
-
-	// File is in working directory, but check if it's adapter/framework code
-	// Exclude known adapter/framework paths even if they're in working directory
-	if strings.Contains(filePath, "replayer-adapter/") ||
-		strings.Contains(filePath, "custom-debugger/") ||
-		strings.Contains(filePath, "vendor/") ||
-		strings.Contains(filePath, ".git/") {
-		return false
-	}
-
-	// Also exclude Temporal SDK and Go runtime code (should be outside working dir anyway)
-	if strings.Contains(filePath, "go.temporal.io/sdk/") ||
-		strings.Contains(filePath, "go.temporal.io/sdk@") ||
-		strings.Contains(filePath, "/runtime/") ||
-		strings.Contains(filePath, "/reflect/") {
-		return false
-	}
-
-	log.Printf("User code detected: %s (in working dir: %s)", filePath, workingDir)
-	return true
 }

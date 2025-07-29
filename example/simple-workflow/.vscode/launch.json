@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Connect to Custom Debugger",
+            "type": "go",
+            "request": "attach",
+            "mode": "remote",
+            "remotePath": "/Users/duyphuongnguyen/Desktop/meo/Projects.nosync/OSS/temporal-goland-plugin/example/simple-workflow",
+            "port": 60000,
+            "host": "127.0.0.1",
+            "showLog": true,
+            "trace": "verbose"
+        }
+    ]
+  }

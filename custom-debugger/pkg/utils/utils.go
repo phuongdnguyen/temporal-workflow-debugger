@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"encoding/json"
@@ -13,17 +13,17 @@ import (
 	"github.com/go-delve/delve/pkg/gobuild"
 )
 
-// min returns the smaller of two integers
-func min(a, b int) int {
+// Min returns the smaller of two integers
+func Min(a, b int) int {
 	if a < b {
 		return a
 	}
 	return b
 }
 
-// isConnectionClosedError checks if an error is due to a closed network connection
+// IsConnectionClosedError checks if an error is due to a closed network connection
 // This helps distinguish between normal connection closes and actual errors
-func isConnectionClosedError(err error) bool {
+func IsConnectionClosedError(err error) bool {
 	if err == nil {
 		return false
 	}
@@ -62,8 +62,8 @@ func isConnectionClosedError(err error) bool {
 	return false
 }
 
-// dialDelveWithRetry attempts to connect to Delve server with retry logic
-func dialDelveWithRetry(addr string, maxRetries int, delay time.Duration) (net.Conn, error) {
+// DialDelveWithRetry attempts to connect to Delve server with retry logic
+func DialDelveWithRetry(addr string, maxRetries int, delay time.Duration) (net.Conn, error) {
 	var lastErr error
 
 	for i := 0; i < maxRetries; i++ {
@@ -84,7 +84,7 @@ func dialDelveWithRetry(addr string, maxRetries int, delay time.Duration) (net.C
 	return nil, fmt.Errorf("failed to connect after %d attempts: %w", maxRetries, lastErr)
 }
 
-func buildBinary(args []string, isTest bool) (string, bool) {
+func BuildBinary(args []string, isTest bool) (string, bool) {
 	var debugname string
 	var err error
 	if isTest {
@@ -106,9 +106,9 @@ func buildBinary(args []string, isTest bool) (string, bool) {
 	return debugname, true
 }
 
-// normalizeID converts various ID types to a consistent string representation
+// NormalizeID converts various ID types to a consistent string representation
 // for reliable map lookups across JSON marshaling/unmarshalling
-func normalizeID(id interface{}) string {
+func NormalizeID(id interface{}) string {
 	if id == nil {
 		return "null"
 	}
