@@ -1,6 +1,7 @@
-package main
+package handlers
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"log"
@@ -10,13 +11,13 @@ import (
 
 	"github.com/go-delve/delve/service/rpc2"
 
-	"custom-debugger/pkg/delve-jsonrpc"
+	delve_jsonrpc "custom-debugger/pkg/json-rpc-interceptors"
 	"custom-debugger/pkg/utils"
 )
 
-func HandleClientConnection(clientTCP net.Conn) {
+// jsonRPCHandler retains all previous logic but uses the buffered reader for the client side.
+func jsonRPCHandler(clientTCP net.Conn, br *bufio.Reader) {
 	clientAddr := clientTCP.RemoteAddr().String()
-	log.Printf("New client connected from %s", clientAddr)
 
 	// Set keep-alive to detect dead connections
 	if tcpConn, ok := clientTCP.(*net.TCPConn); ok {
@@ -80,36 +81,7 @@ func HandleClientConnection(clientTCP net.Conn) {
 	delveClient := rpc2.NewClient("localhost:2345")
 
 	// Create a response interceptor first so we can reference it
-	delveReader := &delve_jsonrpc.ResponseInterceptingReader{
-		Reader:           delveTCP,
-		Name:             fmt.Sprintf("[%s] Delve->Client", clientAddr),
-		RequestMethodMap: requestMethodMap,
-		MapMutex:         &mapMutex,
-		ClientAddr:       clientAddr,
-
-		// Enhanced debugging counters
-		StackTraceCount:     0,
-		StackFrameDataCount: 0,
-		AllResponseCount:    0,
-		MainThreadMutex:     sync.Mutex{},
-
-		// Frame mapping for JSON-RPC stacktrace filtering
-		FrameMapping:     make(map[int]int),
-		FrameMappingLock: sync.RWMutex{},
-
-		// Auto-stepping infrastructure
-		DelveClient: delveClient,
-
-		// Current state tracking for sentinel breakpoint detection
-		CurrentFile:     "",             // Current file location
-		CurrentFunction: "",             // Current function name
-		CurrentLine:     0,              // Current line number
-		StateMutex:      sync.RWMutex{}, // Protects current state fields
-
-		// Reference to request reader for step over tracking
-		RequestReader: nil, // Will be set after clientReader is created
-	}
-
+	delveReader := delve_jsonrpc.NewResponseInterceptingReader(delveTCP, fmt.Sprintf("[%s] Delve->Client", clientAddr), requestMethodMap, &mapMutex, clientAddr, delveClient)
 	// Ensure both connections are closed when function exits
 	defer func() {
 		log.Printf("Closing connections for client %s", clientAddr)
@@ -137,16 +109,8 @@ func HandleClientConnection(clientTCP net.Conn) {
 		log.Println("Client->Delve")
 
 		// Create intercepting reader that also tracks requests
-		clientReader := &delve_jsonrpc.RequestInterceptingReader{
-			Reader:           clientTCP,
-			Name:             fmt.Sprintf("[%s] Client->Delve", clientAddr),
-			RequestMethodMap: requestMethodMap,
-			MapMutex:         &mapMutex,
-			ResponseReader:   delveReader,
-		}
-
-		// Set the reference from response reader to request reader for step over tracking
-		delveReader.RequestReader = clientReader
+		clientReader := delve_jsonrpc.NewRequestInterceptingReader(br, fmt.Sprintf("[%s] Client->Delve", clientAddr),
+			requestMethodMap, &mapMutex, delveReader)
 
 		if _, err := io.Copy(delveTCP, clientReader); err != nil {
 			// Check if this is a normal connection close vs an actual error

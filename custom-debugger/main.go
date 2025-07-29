@@ -13,6 +13,7 @@ import (
 	"github.com/go-delve/delve/service/debugger"
 	"github.com/go-delve/delve/service/rpccommon"
 
+	"custom-debugger/pkg/handlers"
 	"custom-debugger/pkg/utils"
 )
 
@@ -65,9 +66,11 @@ func main() {
 	// Foreground: true enables headless mode with automatic protocol detection
 	// The server will automatically detect DAP (Content-Length header) vs JSON-RPC
 	debuggerConfig := debugger.Config{
-		WorkingDir:     workingDir,
-		Backend:        "default",
-		Foreground:     true, // Enable headless mode
+		WorkingDir: workingDir,
+		Backend:    "default",
+		// Set to false to be able to cancel the debugger process when testing
+		// TODO: might need to enable it when debugging in Jetbrains IDE
+		Foreground:     false, // Enable headless mode
 		CheckGoVersion: true,
 		// Enable debug logging to see RPC communication issues
 		DebugInfoDirectories: []string{},
@@ -85,7 +88,7 @@ func main() {
 	server := rpccommon.NewServer(&service.Config{
 		Listener: l,
 		Debugger: debuggerConfig,
-		// TODO: figure out why IDE need to reconnect to delve
+		// TODO: figure out why IDE need this set to true
 		AcceptMulti: true, // Allow multiple connections and reconnections
 		APIVersion:  2,
 		ProcessArgs: []string{debugname},
@@ -138,8 +141,12 @@ func main() {
 		// Handle client connection in a goroutine
 		// Don't signal shutdown on disconnect - allow reconnections
 		go func() {
-			HandleClientConnection(clientTCP)
+			handlers.Handle(clientTCP)
 			log.Printf("Client connection ended, but server continues running for reconnections")
 		}()
 	}
+}
+
+func init() {
+	log.SetOutput(os.Stdout)
 }
