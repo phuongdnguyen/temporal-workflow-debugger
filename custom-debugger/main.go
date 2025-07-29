@@ -26,11 +26,13 @@ func main() {
 	// Command-line flags
 	// -----------------------------------------------
 	var showHelp bool
-	flag.BoolVar(&showHelp, "help", false, "tdlv is a temporal workflow debugger. This is a wrapper for delve to provide a seamless experience for debugging temporal workflows. (alias: -h)")
+	flag.BoolVar(&showHelp, "help", false, "tdlv is a temporal workflow debugger, "+
+		"supports both DAP and JSON-RPC (alias: -h)")
 	var proxyPort int
 	flag.IntVar(&proxyPort, "p", 60000, "port for the tdlv proxy (default 60000)")
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "Tdlv is a temporal workflow debugger. This is a wrapper for delve to provide a seamless experience for debugging temporal workflows. (ports 2345 / 60000)\n\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "Tdlv is a temporal workflow debugger, "+
+			"supports both DAP and JSON-RPC  (ports 2345 / 60000)\n\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [options]\n\n", os.Args[0])
 		flag.PrintDefaults()
 	}
@@ -44,9 +46,6 @@ func main() {
 
 	// Enable verbose logging for debugging RPC issues
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-
-	// Enable Go RPC debug logging via environment variables
-	os.Setenv("GODEBUG", "rpclog=1") // Enable RPC debug logging if supported
 
 	// Listen on TCP port for Delve server
 	l, err := net.Listen("tcp", ":2345")
@@ -66,11 +65,9 @@ func main() {
 	// Foreground: true enables headless mode with automatic protocol detection
 	// The server will automatically detect DAP (Content-Length header) vs JSON-RPC
 	debuggerConfig := debugger.Config{
-		WorkingDir: workingDir,
-		Backend:    "default",
-		// Set to false to be able to cancel the debugger process when testing
-		// TODO: might need to enable it when debugging in Jetbrains IDE
-		Foreground:     false, // Enable headless mode
+		WorkingDir:     workingDir,
+		Backend:        "default",
+		Foreground:     false,
 		CheckGoVersion: true,
 		// Enable debug logging to see RPC communication issues
 		DebugInfoDirectories: []string{},
@@ -83,8 +80,7 @@ func main() {
 	// pwd
 	log.Println(fmt.Printf("built binary at %s", debugname))
 
-	// Create RPC2 server with headless mode
-	// TODO: figure out if we should use headless mode or not in Goland IDE integration
+	// Create RPC2 server
 	server := rpccommon.NewServer(&service.Config{
 		Listener: l,
 		Debugger: debuggerConfig,

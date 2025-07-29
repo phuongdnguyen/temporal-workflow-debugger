@@ -22,20 +22,18 @@ type ResponseInterceptingReader struct {
 	dirtyBuffer      []byte
 	bufferLock       sync.Mutex
 	allResponseCount int
-	clientAddr       string
 }
 
-func NewDAPResponseInterceptingReader(delve *rpc2.RPCClient, reader io.Reader, logPrefix string, clientAddr string) *ResponseInterceptingReader {
+func NewDAPResponseInterceptingReader(delve *rpc2.RPCClient, reader io.Reader, logPrefix string) *ResponseInterceptingReader {
 	return &ResponseInterceptingReader{
 		delve:      delve,
 		reader:     reader,
 		logPrefix:  logPrefix,
-		clientAddr: clientAddr,
 		bufferLock: sync.Mutex{},
 	}
 }
 
-// Same logic as jsonrpc, consider refactoring it later
+// Read data in chunks from the server -> debugger stream, process & modify completed chunks
 func (rir *ResponseInterceptingReader) Read(p []byte) (n int, err error) {
 	n, err = rir.reader.Read(p)
 	if err != nil {
@@ -48,11 +46,11 @@ func (rir *ResponseInterceptingReader) Read(p []byte) (n int, err error) {
 		copy(dataCopy, p[:n])
 		rir.bufferLock.Lock()
 		// Append to cleanBuffer for JSON-RPC parsing
-		log.Printf("Current cleanBuffer: %s", string(rir.cleanBuffer))
+		log.Printf("Current cleanBuffer: %s\n", string(rir.cleanBuffer))
 		if len(rir.dirtyBuffer) > 0 {
 			log.Printf("Appending data from previous dirty buffer: %s", string(rir.dirtyBuffer))
 			rir.cleanBuffer = append(rir.cleanBuffer, rir.dirtyBuffer...)
-			log.Println("Reseting dirty buffer")
+			log.Println("Resetting dirty buffer")
 			rir.dirtyBuffer = nil
 		}
 		log.Printf("Appending data from delve: %s", string(dataCopy))
@@ -80,9 +78,6 @@ func (rir *ResponseInterceptingReader) Read(p []byte) (n int, err error) {
 		}
 		rir.bufferLock.Unlock()
 
-		// rir.modifiedData = modifiedData
-		// rir.modifiedOffset = 0
-
 		// Send the first part of modified data
 		bytesToCopy := len(p)
 		if len(modifiedData) < bytesToCopy {
@@ -94,8 +89,6 @@ func (rir *ResponseInterceptingReader) Read(p []byte) (n int, err error) {
 
 		log.Printf("%s: %d bytes (replaced with modified)", rir.logPrefix, bytesToCopy)
 		return bytesToCopy, err
-
-		log.Printf("%s: %d bytes", rir.logPrefix, n)
 	}
 	return n, err
 }
@@ -162,42 +155,12 @@ func (rir *ResponseInterceptingReader) transformResponse() []byte {
 		}
 
 		switch msg := msg.(type) {
-		case *dap.ThreadsResponse:
-			if len(msg.Body.Threads) == 1 && msg.Body.Threads[0].Id == -1 && msg.Body.Threads[0].Name == "Current" {
-				log.Printf("Doing nothing with baseline DAP.ThreadsResponse, msg: %+v, seq: %d\n", msg, msg.RequestSeq)
-			}
-			// Filter the threads response and return modified response
-			// filteredResponse := rir.filterDAPThreadsResponse(jsonObj, msg, remainingCompletedObjs)
-			// if filteredResponse != nil {
-			// 	log.Printf("RETURNING FILTERED DAP THREADS Response #%d TO CLIENT \n", responseNum)
-			// 	return filteredResponse
-			// }
-			log.Printf("Doing nothing with DAP.ThreadsResponse")
-			return rir.buildDAPMessage(jsonObj, remainingCompletedObjs)
-			// filteredResponse := rir.filterDAPThreadsResponse(jsonObj, msg,  remainingCompletedObjs)
-			// if filteredResponse != nil {
-			// 	log.Printf("%s ✅ *** RETURNING FILTERED DAP THREADS Response #%d TO CLIENT ***", rir.logPrefix,
-			// 		responseNum)
-			// 	return filteredResponse
-			// }
-		case *dap.StackTraceResponse:
-			log.Printf("Doing nothing with DAP.StackTraceResponse")
-			return rir.buildDAPMessage(jsonObj, remainingCompletedObjs)
-			// // // Filter the stacktrace and return modified response
-			// filteredResponse := rir.filterDAPStacktraceResponse(jsonObj, remainingCompletedObjs)
-			// if filteredResponse != nil {
-			// 	// 	// EXPERIMENTAL: Try to force VS Code to use the correct current location
-			// 	// 	// by ensuring the first frame in our filtered response is clearly marked as current
-			// 	// 	rir.debugCurrentLocationOverride(filteredResponse)
-			// 	return filteredResponse
-			// }
 		case *dap.ContinueResponse, *dap.NextResponse:
 			log.Println("Got continue/next response from DAP, doing nothing")
 			return rir.buildDAPMessage(jsonObj, remainingCompletedObjs)
 		case *dap.StoppedEvent:
 			log.Println("Got stopped event from DAP")
 			return rir.handleStoppedEvent(msg, jsonObj, remainingCompletedObjs)
-			// return rir.buildDAPMessage(jsonObj, remainingCompletedObjs)
 		default:
 			log.Printf("Received response  from DAP, doing nothing. Message type: %T", msg)
 			return rir.buildDAPMessage(jsonObj, remainingCompletedObjs)
@@ -290,8 +253,8 @@ func (rir *ResponseInterceptingReader) buildDAPMessage(jsonPayload []byte, remai
 	copy(modifiedBuffer, dapMessage)
 	copy(modifiedBuffer[len(dapMessage):], remaining)
 
-	log.Printf("[%s] buildDAPMessage Complete message: %s", rir.clientAddr, string(dapMessage))
-	log.Printf("[%s] buildDAPMessage modifiedBuffer: %s", rir.clientAddr, string(modifiedBuffer))
+	log.Printf("buildDAPMessage Complete message: %s", string(dapMessage))
+	log.Printf("buildDAPMessage modifiedBuffer: %s", string(modifiedBuffer))
 
 	return modifiedBuffer
 }

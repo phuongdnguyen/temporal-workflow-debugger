@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"sync"
 	"time"
 
 	"github.com/go-delve/delve/service/rpc2"
@@ -67,11 +66,8 @@ func dapHandler(clientTCP net.Conn, br *bufio.Reader) {
 
 	// Create delve client for auto-stepping operations
 	delveClient := rpc2.NewClient("localhost:2345")
-	mapMutex := sync.Mutex{}
-	// Map to track request IDs to method names for response interception
-	requestMethodMap := make(map[string]string)
 	delveReader := delve_dap.NewDAPResponseInterceptingReader(delveClient, delveTCP,
-		fmt.Sprintf("Delve -> Client %s", clientAddr), clientAddr)
+		fmt.Sprintf("Delve -> Client %s", clientAddr))
 
 	// goroutine: client -> delve (use buffered reader to include the peeked byte)
 	go func() {
@@ -79,7 +75,7 @@ func dapHandler(clientTCP net.Conn, br *bufio.Reader) {
 			log.Printf("Client->Delve goroutine ending for %s", clientAddr)
 			done <- struct{}{}
 		}()
-		clientReader := delve_dap.NewRequestInterceptingReader(br, delveReader, &mapMutex, requestMethodMap)
+		clientReader := delve_dap.NewRequestInterceptingReader(br, delveReader)
 		written, err := io.Copy(delveTCP, clientReader)
 		if err != nil {
 			log.Printf("Error copying request from client to debugger: %v", err)

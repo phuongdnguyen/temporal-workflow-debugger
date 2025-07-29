@@ -10,7 +10,6 @@ import (
 // IsInAdapterCodeByPath checks if a file path is in adapter code
 func IsInAdapterCodeByPath(filePath string) bool {
 	if filePath == "" {
-		// TODO: Changed to true for DAP, need double check for jsonrpc
 		return true
 	}
 	log.Printf("IsInAdapterCodeByPath file: %s \n", filePath)

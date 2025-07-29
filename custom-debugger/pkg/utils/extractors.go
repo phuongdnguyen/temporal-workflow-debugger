@@ -10,22 +10,6 @@ import (
 	"github.com/go-delve/delve/service/api"
 )
 
-// ExtractJSONObject finds and extracts the first complete JSON object from the buffer
-// Handles both DAP (with Content-Length headers) and JSON-RPC formats
-// func ExtractJSONObject(data []byte) (jsonObj []byte, remaining []byte, found bool) {
-// 	if len(data) == 0 {
-// 		return nil, data, false
-// 	}
-//
-// 	// Check if this is a DAP message (starts with Content-Length header)
-// 	if bytes.HasPrefix(data, []byte("Content-Length:")) {
-// 		return ExtractDAPMessage(data)
-// 	}
-//
-// 	// Fall back to JSON-RPC parsing
-// 	return ExtractJSONRPCMessage(data)
-// }
-
 // ExtractDAPMessage extracts a DAP message with Content-Length header
 func ExtractDAPMessage(data []byte) (jsonObj []byte, remainingCompletedJsonObjs []byte, found bool,
 	remainingIncompleted []byte) {
@@ -39,7 +23,7 @@ func ExtractDAPMessage(data []byte) (jsonObj []byte, remainingCompletedJsonObjs 
 	// Safety check: don't process unreasonably large data
 	const maxMessageSize = 1024 * 1024 // 1MB per message
 	if len(data) > maxMessageSize {
-		// For DAP, we need the header so we can't just truncate arbitrarily
+		// For DAP, we need the header so we can't just truncate arbitrarily,
 		// But we can limit our search space
 		data = data[:maxMessageSize]
 	}
@@ -48,7 +32,7 @@ func ExtractDAPMessage(data []byte) (jsonObj []byte, remainingCompletedJsonObjs 
 	headerEnd := bytes.Index(data, []byte("\r\n\r\n"))
 	if headerEnd == -1 {
 		log.Printf("ExtractDAPMessage, header is not complete")
-		return nil, data, false, nil // Headers not complete yet
+		return nil, data, false, nil // Headers are not complete yet
 	}
 
 	// Extract the header part
@@ -58,16 +42,12 @@ func ExtractDAPMessage(data []byte) (jsonObj []byte, remainingCompletedJsonObjs 
 	contentLengthLine := string(headerPart)
 	var contentLength int
 	if n, err := fmt.Sscanf(contentLengthLine, "Content-Length: %d", &contentLength); n != 1 || err != nil {
-		// Invalid Content-Length header, fall back to JSON-RPC
-		// return ExtractJSONRPCMessage(data)
 		log.Printf("ExtractDAPMessage, invalid Content-Length header")
 		return nil, data, false, nil
 	}
 
 	// Sanity check on content length
 	if contentLength < 0 || contentLength > 10*1024*1024 { // 10MB limit
-		// Invalid content length, fall back to JSON-RPC
-		// return ExtractJSONRPCMessage(data)
 		log.Printf("ExtractDAPMessage, Content-Length header value out of range")
 		return nil, data, false, nil
 	}
