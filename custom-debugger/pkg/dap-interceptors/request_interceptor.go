@@ -20,9 +20,6 @@ type RequestInterceptingReader struct {
 	cleanBuffer      []byte
 	dirtyBuffer      []byte
 	allRequestCount  int
-	// Request modification support
-	// modifiedData   []byte // Buffer for modified requests to send to delve
-	// modifiedOffset int    // Current position in modifiedData
 }
 
 func NewRequestInterceptingReader(reader io.Reader, responseReader *ResponseInterceptingReader, mapMutex *sync.Mutex, requestMethodMap map[string]string) *RequestInterceptingReader {
@@ -68,6 +65,7 @@ func (rir *RequestInterceptingReader) Read(p []byte) (n int, err error) {
 		copy(dataCopy, p[:n])
 
 		// Append to cleanBuffer for JSON-RPC parsing
+		log.Printf("RequestInterceptingReader.Read, appending %s to cleanBuffer \n", dataCopy)
 		rir.cleanBuffer = append(rir.cleanBuffer, dataCopy...)
 
 		// Try to extract complete JSON-RPC messages and potentially modify them
@@ -102,8 +100,11 @@ func (rir *RequestInterceptingReader) Read(p []byte) (n int, err error) {
 func (rir *RequestInterceptingReader) transformRequest() []byte {
 	for len(rir.cleanBuffer) > 0 {
 		// Try to find a complete JSON object in the cleanBuffer
+		log.Println("calling utils.ExtractDAPMessage from request handler")
 		jsonObj, remaining, found, _ := utils.ExtractDAPMessage(rir.cleanBuffer)
 		if !found {
+			log.Printf("RequestInterceptingReader.transformRequest can not extract json object from %s",
+				rir.cleanBuffer)
 			break
 		}
 
@@ -171,180 +172,3 @@ func (rir *RequestInterceptingReader) transformRequest() []byte {
 
 	return nil // No modifications needed
 }
-
-// func (rir *RequestInterceptingReader) translateFrameIDForEvaluateCmd(req utils.DAPRequest, remaining []byte, num int) []byte {
-//
-// 	// Extract the evaluate arguments
-// 	if req.Arguments == nil {
-// 		log.Printf("%s ❌ DAP evaluate request has no arguments", rir.logPrefix)
-// 		return nil
-// 	}
-//
-// 	// Convert arguments to map for easier access
-// 	argsMap, ok := req.Arguments.(map[string]interface{})
-// 	if !ok {
-// 		log.Printf("%s ❌ DAP evaluate arguments is not a map", rir.logPrefix)
-// 		return nil
-// 	}
-//
-// 	// Extract frameId from arguments
-// 	frameIdInterface, ok := argsMap["frameId"]
-// 	if !ok {
-// 		log.Printf("%s ⚠️ DAP evaluate request has no frameId, using default", rir.logPrefix)
-// 		return nil // No frame ID to translate
-// 	}
-//
-// 	// Convert frameId to int
-// 	var originalFrameId int
-// 	switch frameId := frameIdInterface.(type) {
-// 	case float64:
-// 		originalFrameId = int(frameId)
-// 	case int:
-// 		originalFrameId = frameId
-// 	default:
-// 		log.Printf("%s ❌ DAP evaluate frameId is not a number: %T", rir.logPrefix, frameId)
-// 		return nil
-// 	}
-//
-// 	// Extract expression for logging
-// 	var expression string
-// 	if exprInterface, ok := argsMap["expression"]; ok {
-// 		if expr, ok := exprInterface.(string); ok {
-// 			expression = expr
-// 		}
-// 	}
-//
-// 	log.Printf("%s 🎯 DAP EVALUATE REQUEST ANALYSIS: expr='%s', frameId=%d",
-// 		rir.logPrefix, expression, originalFrameId)
-//
-// 	// Get frame mapping from response reader
-// 	if rir.responseReader == nil {
-// 		log.Printf("%s ❌ No response reader available for frame mapping", rir.logPrefix)
-// 		return nil
-// 	}
-//
-// 	rir.responseReader.frameMappingLock.RLock()
-// 	frameMapping := rir.responseReader.frameMapping
-// 	if len(frameMapping) == 0 {
-// 		rir.responseReader.frameMappingLock.RUnlock()
-// 		log.Printf("%s ⚠️ No frame mapping available, DAP evaluate request may fail", rir.logPrefix)
-// 		return nil
-// 	}
-//
-// 	// Translate frame ID: client's filtered frame -> original delve frame
-// 	translatedFrameId, exists := frameMapping[originalFrameId]
-// 	rir.responseReader.frameMappingLock.RUnlock()
-//
-// 	if !exists {
-// 		log.Printf("%s ❌ Frame %d not found in DAP mapping (available: %v)", rir.logPrefix, originalFrameId, frameMapping)
-// 		return nil
-// 	}
-//
-// 	log.Printf("%s 🔄 DAP FRAME TRANSLATION: filtered frame %d -> original frame %d", rir.logPrefix, originalFrameId, translatedFrameId)
-//
-// 	// Modify the request with the translated frame ID
-// 	argsMap["frameId"] = translatedFrameId
-//
-// 	// Update the request with modified arguments
-// 	req.Arguments = argsMap
-//
-// 	// Re-encode the complete request
-// 	modifiedRequestBytes, err := json.Marshal(req)
-// 	if err != nil {
-// 		log.Printf("%s ❌ Failed to marshal modified DAP evaluate request: %v", rir.logPrefix, err)
-// 		return nil
-// 	}
-//
-// 	log.Printf("%s ✅ Successfully translated DAP evaluate request: frameId %d -> %d", rir.logPrefix, originalFrameId, translatedFrameId)
-//
-// 	// Combine modified request with remaining cleanBuffer data
-// 	modifiedBuffer := make([]byte, len(modifiedRequestBytes)+len(remaining))
-// 	copy(modifiedBuffer, modifiedRequestBytes)
-// 	copy(modifiedBuffer[len(modifiedRequestBytes):], remaining)
-//
-// 	return modifiedBuffer
-// }
-//
-// func (rir *RequestInterceptingReader) translateFrameIDForScopesCmd(req utils.DAPRequest, remaining []byte, num int) []byte {
-//
-// 	// Extract the scopes arguments
-// 	if req.Arguments == nil {
-// 		log.Printf("%s ❌ DAP scopes request has no arguments", rir.logPrefix)
-// 		return nil
-// 	}
-//
-// 	// Convert arguments to map for easier access
-// 	argsMap, ok := req.Arguments.(map[string]interface{})
-// 	if !ok {
-// 		log.Printf("%s ❌ DAP scopes arguments is not a map", rir.logPrefix)
-// 		return nil
-// 	}
-//
-// 	// Extract frameId from arguments
-// 	frameIdInterface, ok := argsMap["frameId"]
-// 	if !ok {
-// 		log.Printf("%s ❌ DAP scopes request has no frameId", rir.logPrefix)
-// 		return nil
-// 	}
-//
-// 	// Convert frameId to int
-// 	var originalFrameId int
-// 	switch frameId := frameIdInterface.(type) {
-// 	case float64:
-// 		originalFrameId = int(frameId)
-// 	case int:
-// 		originalFrameId = frameId
-// 	default:
-// 		log.Printf("%s ❌ DAP scopes frameId is not a number: %T", rir.logPrefix, frameId)
-// 		return nil
-// 	}
-//
-// 	log.Printf("%s 🎯 DAP SCOPES REQUEST ANALYSIS: frameId=%d", rir.logPrefix, originalFrameId)
-//
-// 	// Get frame mapping from response reader
-// 	if rir.responseReader == nil {
-// 		log.Printf("%s ❌ No response reader available for frame mapping", rir.logPrefix)
-// 		return nil
-// 	}
-//
-// 	rir.responseReader.frameMappingLock.RLock()
-// 	frameMapping := rir.responseReader.frameMapping
-// 	if len(frameMapping) == 0 {
-// 		rir.responseReader.frameMappingLock.RUnlock()
-// 		log.Printf("%s ⚠️ No frame mapping available, DAP scopes request may fail", rir.logPrefix)
-// 		return nil
-// 	}
-//
-// 	// Translate frame ID: client's filtered frame -> original delve frame
-// 	translatedFrameId, exists := frameMapping[originalFrameId]
-// 	rir.responseReader.frameMappingLock.RUnlock()
-//
-// 	if !exists {
-// 		log.Printf("%s ❌ Frame %d not found in DAP scopes mapping (available: %v)", rir.logPrefix, originalFrameId, frameMapping)
-// 		return nil
-// 	}
-//
-// 	log.Printf("%s 🔄 DAP SCOPES FRAME TRANSLATION: filtered frame %d -> original frame %d", rir.logPrefix, originalFrameId, translatedFrameId)
-//
-// 	// Modify the request with the translated frame ID
-// 	argsMap["frameId"] = translatedFrameId
-//
-// 	// Update the request with modified arguments
-// 	req.Arguments = argsMap
-//
-// 	// Re-encode the complete request
-// 	modifiedRequestBytes, err := json.Marshal(req)
-// 	if err != nil {
-// 		log.Printf("%s ❌ Failed to marshal modified DAP scopes request: %v", rir.logPrefix, err)
-// 		return nil
-// 	}
-//
-// 	log.Printf("%s ✅ Successfully translated DAP scopes request: frameId %d -> %d", rir.logPrefix, originalFrameId, translatedFrameId)
-//
-// 	// Combine modified request with remaining cleanBuffer data
-// 	modifiedBuffer := make([]byte, len(modifiedRequestBytes)+len(remaining))
-// 	copy(modifiedBuffer, modifiedRequestBytes)
-// 	copy(modifiedBuffer[len(modifiedRequestBytes):], remaining)
-//
-// 	return modifiedBuffer
-// }

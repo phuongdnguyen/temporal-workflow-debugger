@@ -71,7 +71,7 @@ func dapHandler(clientTCP net.Conn, br *bufio.Reader) {
 	// Map to track request IDs to method names for response interception
 	requestMethodMap := make(map[string]string)
 	delveReader := delve_dap.NewDAPResponseInterceptingReader(delveClient, delveTCP,
-		fmt.Sprintf("Delve -> Client %s", clientAddr), &mapMutex, requestMethodMap, clientAddr)
+		fmt.Sprintf("Delve -> Client %s", clientAddr), clientAddr)
 
 	// goroutine: client -> delve (use buffered reader to include the peeked byte)
 	go func() {

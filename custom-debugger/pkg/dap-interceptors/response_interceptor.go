@@ -15,66 +15,28 @@ import (
 )
 
 type ResponseInterceptingReader struct {
-	reader      io.Reader
-	delve       *rpc2.RPCClient
-	logPrefix   string
-	cleanBuffer []byte
-	dirtyBuffer []byte
-	bufferLock  sync.Mutex
-	// modifiedData        []byte
-	// modifiedOffset      int
-	allResponseCount    int
-	stackFrameDataCount int
-	mapMutex            *sync.Mutex
-	requestMethodMap    map[string]string
-	clientAddr          string
-
-	frameMapping     map[int]int // Maps filtered frame index -> original frame index
-	frameMappingLock sync.RWMutex
+	reader           io.Reader
+	delve            *rpc2.RPCClient
+	logPrefix        string
+	cleanBuffer      []byte
+	dirtyBuffer      []byte
+	bufferLock       sync.Mutex
+	allResponseCount int
+	clientAddr       string
 }
 
-func NewDAPResponseInterceptingReader(delve *rpc2.RPCClient, reader io.Reader,
-	logPrefix string, mapMutex *sync.Mutex, requestMethodMap map[string]string,
-	clientAddr string) *ResponseInterceptingReader {
+func NewDAPResponseInterceptingReader(delve *rpc2.RPCClient, reader io.Reader, logPrefix string, clientAddr string) *ResponseInterceptingReader {
 	return &ResponseInterceptingReader{
-		delve:            delve,
-		reader:           reader,
-		logPrefix:        logPrefix,
-		mapMutex:         mapMutex,
-		requestMethodMap: requestMethodMap,
-		clientAddr:       clientAddr,
-		// TODO: might not need to init frameMapping here
-		frameMapping:     make(map[int]int),
-		frameMappingLock: sync.RWMutex{},
-		bufferLock:       sync.Mutex{},
+		delve:      delve,
+		reader:     reader,
+		logPrefix:  logPrefix,
+		clientAddr: clientAddr,
+		bufferLock: sync.Mutex{},
 	}
 }
 
 // Same logic as jsonrpc, consider refactoring it later
 func (rir *ResponseInterceptingReader) Read(p []byte) (n int, err error) {
-	// First, check if we have modified data to send to client
-	// if rir.modifiedOffset < len(rir.modifiedData) {
-	// 	log.Println("we have modified data to send to client")
-	// 	// Send modified data instead of reading from delve
-	// 	remaining := len(rir.modifiedData) - rir.modifiedOffset
-	// 	bytesToCopy := len(p)
-	// 	if remaining < bytesToCopy {
-	// 		bytesToCopy = remaining
-	// 	}
-	//
-	// 	copy(p, rir.modifiedData[rir.modifiedOffset:rir.modifiedOffset+bytesToCopy])
-	// 	rir.modifiedOffset += bytesToCopy
-	//
-	// 	// If we've sent all modified data, reset
-	// 	if rir.modifiedOffset >= len(rir.modifiedData) {
-	// 		rir.modifiedData = nil
-	// 		rir.modifiedOffset = 0
-	// 	}
-	//
-	// 	log.Printf("%s: %d bytes (modified)", rir.logPrefix, bytesToCopy)
-	// 	return bytesToCopy, nil
-	// }
-	// Normal case: read from delve server
 	n, err = rir.reader.Read(p)
 	if err != nil {
 		log.Printf("failed to read response from Delve server: %v", err)
@@ -99,41 +61,40 @@ func (rir *ResponseInterceptingReader) Read(p []byte) (n int, err error) {
 		// Try to extract complete JSON-RPC messages and potentially modify them
 		modifiedData := rir.transformResponse()
 
-		// Check if response was suppressed (nil means suppress)
-		if modifiedData == nil && len(rir.cleanBuffer) == 0 {
-			// Response was suppressed - don't send anything to client
-			log.Printf("%s: 0 bytes (response suppressed)", rir.logPrefix)
+		// If transformResponse returned nil, it means we don't have a complete message yet
+		// Don't send partial data to the client - wait for more data
+		if modifiedData == nil {
+			log.Printf("%s: 0 bytes (waiting for complete DAP message)", rir.logPrefix)
 			return 0, nil
 		}
 
 		// If we got modified data, we need to replace what we're sending to client
-		if modifiedData != nil {
-			// Clear the cleanBuffer since we're replacing the data
-			rir.bufferLock.Lock()
-			if len(rir.cleanBuffer) != 0 {
-				log.Printf("Will clear cleanBuffer that has %s in it", string(rir.cleanBuffer))
-				rir.cleanBuffer = nil
-			}
-			if len(rir.dirtyBuffer) != 0 {
-				log.Printf("Keeping dirty buffer that have in-completed data in it")
-			}
-			rir.bufferLock.Unlock()
-
-			// rir.modifiedData = modifiedData
-			// rir.modifiedOffset = 0
-
-			// Send the first part of modified data
-			bytesToCopy := len(p)
-			if len(modifiedData) < bytesToCopy {
-				bytesToCopy = len(modifiedData)
-			}
-
-			copy(p, modifiedData[:bytesToCopy])
-			// rir.modifiedOffset = bytesToCopy
-
-			log.Printf("%s: %d bytes (replaced with modified)", rir.logPrefix, bytesToCopy)
-			return bytesToCopy, err
+		// Clear the cleanBuffer since we're replacing the data
+		rir.bufferLock.Lock()
+		if len(rir.cleanBuffer) != 0 {
+			log.Printf("Will clear cleanBuffer that has %s in it", string(rir.cleanBuffer))
+			rir.cleanBuffer = nil
 		}
+		if len(rir.dirtyBuffer) != 0 {
+			log.Printf("Keeping dirty buffer that have in-completed data in it")
+		}
+		rir.bufferLock.Unlock()
+
+		// rir.modifiedData = modifiedData
+		// rir.modifiedOffset = 0
+
+		// Send the first part of modified data
+		bytesToCopy := len(p)
+		if len(modifiedData) < bytesToCopy {
+			bytesToCopy = len(modifiedData)
+		}
+
+		copy(p, modifiedData[:bytesToCopy])
+		// rir.modifiedOffset = bytesToCopy
+
+		log.Printf("%s: %d bytes (replaced with modified)", rir.logPrefix, bytesToCopy)
+		return bytesToCopy, err
+
 		log.Printf("%s: %d bytes", rir.logPrefix, n)
 	}
 	return n, err
@@ -307,14 +268,6 @@ func (rir *ResponseInterceptingReader) handleStoppedEvent(event *dap.StoppedEven
 		}
 	}
 	return rir.buildDAPMessage(jsonObj, remaining)
-}
-
-func (rir *ResponseInterceptingReader) logDAPStacktraceResponse(jsonLine string) {
-	log.Printf("DAP Stack trace response (%s)", jsonLine)
-}
-
-func (rir *ResponseInterceptingReader) filterDAPStacktraceResponse(jsonObj []byte, remaining []byte) []byte {
-	return jsonObj
 }
 
 // Consider using a cleaner approach dap.WriteBaseMessage function to build message
