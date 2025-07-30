@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	replayer_adapter.SetReplayMode(replayer_adapter.ReplayModeIde)
+	replayer_adapter.SetReplayMode(replayer_adapter.ReplayModeStandalone)
 	err := replayer_adapter.Replay(replayer_adapter.ReplayOptions{
 		WorkerReplayOptions: worker.WorkflowReplayerOptions{DisableDeadlockDetection: true},
 	}, workflows.ExampleWorkflow)
