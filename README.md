@@ -1,19 +1,17 @@
-# Debugger for Temporal go
+# Debugger for Temporal Workflows
 
-<img src="docs/images/logo.png" alt="Temporal Go Debugger Logo" width="200">
+<img src="docs/images/logo.png" alt="Temporal Debugger Logo" width="200">
 
 # Introduction
-Œ
-The **Temporal Go Workflow Debugger** is a comprehensive debugging solution that enables step-through debugging of [Temporal](https://github.com/temporalio/temporal) workflows in Go. Unlike traditional debuggers that struggle with Temporal's distributed execution model, this debugger provides a seamless development experience by allowing you to set breakpoints, inspect variables, and trace execution flow within your workflow code.
+
+A comprehensive debugging solution that enables step-through debugging of [Temporal](https://github.com/temporalio/temporal) workflows. Unlike traditional debuggers that struggle with Temporal's distributed execution model, this debugger provides a seamless development experience by allowing you to set breakpoints, inspect variables, and trace execution flow within your workflow code.
 
 ## 🚀 Why This Debugger?
 
 Debugging Temporal workflows has traditionally been challenging because:
 
 - **Distributed Execution**: Workflows can pause, resume, and retry across multiple processes and machines
-- **Event-Driven Model**: Execution is driven by history events rather than direct code execution  
-- **Non-Deterministic Replay**: Standard debuggers break Temporal's deterministic replay requirements
-- **Complex State Management**: Workflow state is managed externally by the Temporal service
+- **Complex State Management**: Execution is driven by history events rather than direct code execution. Workflow state is managed externally by the Temporal service, the progress of a workflow depends on interaction between Temporal server and a thick SDK that know how to use history event to trigger the actual workflow code execution. 
 
 This debugger solves these challenges by implementing **deterministic replay debugging** - it reconstructs workflow execution from Temporal's event history, allowing you to debug exactly what happened during the original execution.
 
@@ -28,24 +26,14 @@ This debugger solves these challenges by implementing **deterministic replay deb
 - **History Upload**: Load Temporal workflow execution history (JSON format)
 - **Event Visualization**: Browse through workflow events with timestamps and details
 - **Breakpoint Management**: Set breakpoints on specific workflow events or code locations
-- **Call Stack Filtering**: Clean call stacks that hide internal adapter code, showing only your workflow logic
 
-### 🛠 **Advanced Debugging Capabilities**
-- **Variable Inspection**: Hover over variables to see their values at any point in execution
-- **Local Variables Panel**: View all local variables and function arguments in the current frame
-- **Expression Evaluation**: Evaluate expressions in the context of the workflow execution
-- **Multi-Protocol Support**: Works with both GoLand (JSON-RPC) and VS Code (DAP) debugging protocols
 
-### 🏗 **Robust Architecture**
-- **Delve Proxy**: Transparent proxy between IDE and Delve debugger that intercepts and enhances debugging commands
-- **Frame Translation**: Automatically maps between filtered stack frames and original Delve frames for accurate variable inspection
-- **Protocol Compatibility**: Maintains full compatibility with standard Go debugging tools while adding Temporal-specific enhancements
 
 ## 🏛 Architecture Overview
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   JetBrains     │    │   Delve Proxy    │    │   Delve Server  │
+│   JetBrains     │    │   Serving Layer  │    │ Debugger Server │
 │   IDE Plugin    │◄──►│   (tdlv)         │◄──►│   + Workflow    │
 │                 │    │                  │    │   Replayer      │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
@@ -60,21 +48,28 @@ This debugger solves these challenges by implementing **deterministic replay deb
 The debugger consists of several integrated components:
 
 1. **JetBrains Plugin**: Provides the user interface, manages workflow history, and integrates with IDE debugging
-2. **Delve Proxy (`tdlv`)**: Intercepts debugging commands and enhances them with workflow-specific logic
-3. **Workflow Replayer**: Executes workflow code deterministically using Temporal's replay mechanism
+2. **Servubg layer (`tdlv`)**: Intercepts debugging commands and enhances them with workflow-specific logic
+3. **Workflow Replayer**: Executes workflow code deterministically using Temporal's replayer
 4. **History Server**: Manages workflow event history and breakpoint state
 5. **Adapter Layer**: Connects the replay execution with the debugging infrastructure
 
 ## 👥 Who Is This For?
 
-- **Temporal Go Developers**: Anyone building workflows with Temporal's Go SDK
-- **DevOps Engineers**: Teams debugging production workflow issues using execution history
-- **Development Teams**: Organizations wanting to improve their Temporal workflow development experience
-- **Go Developers**: Developers familiar with standard Go debugging who want to extend those skills to Temporal workflows
+- **Temporal Workflow Developers**: Anyone building workflows with Temporal's SDK
 
-Whether you're debugging a complex workflow that's failing in production or just want a better development experience while building new workflows, this debugger provides the tools you need to understand and fix your Temporal Go code efficiently.
+Whether you're debugging a complex workflow that's failing in production or just want a better development experience while building new workflows, this debugger provides the tools you need to understand and fix your Temporal workflow code efficiently.
 
 
 # Usage
+You can run the debugger in:
+- Standalone mode: run the debugger with your workflow code and connect your IDE to it. This approach is lower-level and not recommended for end user. Install the debugger
 
+```bash
+brew install tdlv
+```
 
+- IDE Integrated: install the plugin and debug your workflow via a debugging UI. This approach provides a more complete debugging experience and is the recommended approach.
+
+Install the plugin from:
+- [Jetbrains marketplace](https://plugins.jetbrains.com/search?excludeTags=internal&products=androidstudio&products=aqua&products=clion&products=dataspell&products=dbe&products=fleet&products=go&products=idea&products=idea_ce&products=mps&products=phpstorm&products=pycharm&products=rider&products=ruby&products=rust&products=webstorm&products=writerside&search=Temporal%20workflow%20debugger)
+- [Vscode marketplace](https://marketplace.visualstudio.com/search?term=Temporal%20workflow%20debugger&target=VSCode&category=All%20categories&sortBy=Relevance)
