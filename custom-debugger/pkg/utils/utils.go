@@ -128,3 +128,11 @@ func NormalizeID(id interface{}) string {
 		return fmt.Sprintf("%v", v)
 	}
 }
+
+func GetLang() string {
+	lang := os.Getenv("LANGUAGE")
+	if lang == "" {
+		lang = "go"
+	}
+	return lang
+}

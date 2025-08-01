@@ -66,7 +66,7 @@ class UserOnboardingWorkflow:
         """
         print(f"🚀 Starting user onboarding workflow for user_id: {user_id}")
         
-        # Step 1: Fetch user data (Event ID ~2)
+        # Step 1: Fetch user data
         print("Step 1: Fetching user data...")
         user_data = await workflow.execute_activity(
             fetch_user_data,
@@ -74,7 +74,7 @@ class UserOnboardingWorkflow:
             start_to_close_timeout=timedelta(seconds=30)
         )
         
-        # Step 2: Validate user data (Event ID ~4)
+        # Step 2: Validate user data
         print("Step 2: Validating user data...")
         is_valid = await workflow.execute_activity(
             validate_user_data,
@@ -85,7 +85,7 @@ class UserOnboardingWorkflow:
         if not is_valid:
             raise ValueError("User data validation failed")
         
-        # Step 3: Send welcome email (Event ID ~6)
+        # Step 3: Send welcome email
         print("Step 3: Sending welcome email...")
         email_result = await workflow.execute_activity(
             send_welcome_email,
@@ -93,7 +93,7 @@ class UserOnboardingWorkflow:
             start_to_close_timeout=timedelta(seconds=30)
         )
         
-        # Step 4: Create user profile (Event ID ~8)
+        # Step 4: Create user profile
         print("Step 4: Creating user profile...")
         profile = await workflow.execute_activity(
             create_user_profile,
@@ -101,7 +101,7 @@ class UserOnboardingWorkflow:
             start_to_close_timeout=timedelta(seconds=30)
         )
         
-        # Step 5: Return completion result (Event ID ~10)
+        # Step 5: Return completion result
         result = {
             "user_id": user_id,
             "status": "completed",

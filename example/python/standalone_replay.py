@@ -11,8 +11,6 @@ import asyncio
 import json
 import os
 import sys
-from datetime import timedelta
-from typing import List
 
 # Add paths to Python path for imports
 project_root = os.path.join(os.path.dirname(__file__), '..', '..')
@@ -21,7 +19,6 @@ print("replayer_adapter_path", replayer_adapter_path)
 sys.path.insert(0, project_root)
 sys.path.insert(0, replayer_adapter_path)
 
-from temporalio import workflow, activity
 from replayer import (
             ReplayMode, ReplayOptions, set_replay_mode, 
             set_breakpoints, replay
@@ -60,8 +57,8 @@ def load_workflow_history(history_file_path: str = "user_onboarding_history.json
         with open(history_file_path, "r") as f:
             history_data = json.load(f)
         
-        print(f"📄 Loaded workflow history from: {history_file_path}")
-        print(f"📊 Found {len(history_data.get('events', []))} events in history")
+        print(f"Loaded workflow history from: {history_file_path}")
+        print(f"Found {len(history_data.get('events', []))} events in history")
         return history_data
         
     except json.JSONDecodeError as e:
@@ -75,28 +72,23 @@ def load_workflow_history(history_file_path: str = "user_onboarding_history.json
 # ============================================================================
 
 async def example_replay_with_breakpoints():
-    """Replay with breakpoints at key events"""
+    """Replay with breakpoints at events"""
     print("\n" + "="*60)
-    print("🛑 REPLAY WITH BREAKPOINTS EXAMPLE")
-    print("="*60)
+    print("REPLAY WITH BREAKPOINTS EXAMPLE")
     
     # Set up standalone mode
     set_replay_mode(ReplayMode.STANDALONE)
     
-    # Set breakpoints at key events:
-    # - Event 2: ActivityTaskScheduled (fetch_user_data)
-    # - Event 5: ActivityTaskScheduled (validate_user_data) 
-    # - Event 8: ActivityTaskScheduled (send_welcome_email)
-    # - Event 11: ActivityTaskScheduled (create_user_profile)
-    breakpoint_events = [2, 5, 8, 11]
+    # Set breakpoints at workflow task started events:
+    # breakpoint_events = [3, 9, 15, 21]
+    breakpoint_events = [9,15,21]
     set_breakpoints(breakpoint_events)
     
-    print(f"🎯 Set breakpoints at events: {breakpoint_events}")
+    print(f"Set breakpoints at events: {breakpoint_events}")
     
     try:
         # Load workflow history from external file
         history_file = "user_onboarding_history.json"
-        history_data = load_workflow_history(history_file)
         
         # Create replay options
         opts = ReplayOptions(

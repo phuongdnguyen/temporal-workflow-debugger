@@ -8,9 +8,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/go-delve/delve/service/rpc2"
-
 	delve_dap "custom-debugger/pkg/dap-interceptors"
+	"custom-debugger/pkg/daptest"
 	"custom-debugger/pkg/utils"
 )
 
@@ -65,8 +64,9 @@ func dapHandler(clientTCP net.Conn, br *bufio.Reader) {
 	done := make(chan struct{}, 2)
 
 	// Create delve client for auto-stepping operations
-	delveClient := rpc2.NewClient("localhost:2345")
-	delveReader := delve_dap.NewDAPResponseInterceptingReader(delveClient, delveTCP,
+	// delveClient := rpc2.NewClient("localhost:2345")
+	debugger := daptest.NewClient("localhost:2345")
+	delveReader := delve_dap.NewDAPResponseInterceptingReader(nil, debugger, delveTCP,
 		fmt.Sprintf("Delve -> Client %s", clientAddr))
 
 	// goroutine: client -> delve (use buffered reader to include the peeked byte)

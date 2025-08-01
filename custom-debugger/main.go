@@ -46,61 +46,98 @@ func main() {
 
 	// Enable verbose logging for debugging RPC issues
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-
-	// Listen on TCP port for Delve server
-	l, err := net.Listen("tcp", ":2345")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer func() {
-		if err := l.Close(); err != nil {
-			log.Fatal(fmt.Errorf("error closing listener: %w", err))
+	lang := utils.GetLang()
+	debuggerStopCh := make(chan struct{}, 1)
+	switch lang {
+	case "go":
+		// Listen on TCP port for Delve server
+		l, err := net.Listen("tcp", ":2345")
+		if err != nil {
+			log.Fatal(err)
 		}
-	}()
-	workingDir, err = os.Getwd()
-	if err != nil {
-		log.Fatal(fmt.Errorf("error getting working directory: %w", err))
-	}
-	// Setup debugger config for headless mode
-	// Foreground: true enables headless mode with automatic protocol detection
-	// The server will automatically detect DAP (Content-Length header) vs JSON-RPC
-	debuggerConfig := debugger.Config{
-		WorkingDir:     workingDir,
-		Backend:        "default",
-		Foreground:     false,
-		CheckGoVersion: true,
-		// Enable debug logging to see RPC communication issues
-		DebugInfoDirectories: []string{},
-		DisableASLR:          false,
-	}
-	debugname, ok := utils.BuildBinary([]string{}, false)
-	if !ok {
-		log.Fatal("could not build binary")
-	}
-	// pwd
-	log.Println(fmt.Printf("built binary at %s", debugname))
-
-	// Create RPC2 server
-	server := rpccommon.NewServer(&service.Config{
-		Listener: l,
-		Debugger: debuggerConfig,
-		// TODO: figure out why IDE need this set to true
-		AcceptMulti: true, // Allow multiple connections and reconnections
-		APIVersion:  2,
-		ProcessArgs: []string{debugname},
-	})
-
-	// Enable additional logging to help debug RPC timeouts
-	log.Printf("Delve server configuration: WorkingDir=%s, Backend=%s, Binary=%s",
-		debuggerConfig.WorkingDir, debuggerConfig.Backend, debugname)
-
-	// Start Delve server in background
-	go func() {
-		if err := server.Run(); err != nil {
-			log.Fatalf("server.Run failed: %v", err)
+		defer func() {
+			if err := l.Close(); err != nil {
+				log.Fatal(fmt.Errorf("error closing listener: %w", err))
+			}
+		}()
+		workingDir, err = os.Getwd()
+		if err != nil {
+			log.Fatal(fmt.Errorf("error getting working directory: %w", err))
 		}
-	}()
-	log.Println("Delve headless server started on :2345 (supports both JSON-RPC and DAP, single-client mode)")
+		// Setup debugger config for headless mode
+		// Foreground: true enables headless mode with automatic protocol detection
+		// The server will automatically detect DAP (Content-Length header) vs JSON-RPC
+		// TODO: disable to test multi-lange, need to detect lang and decide if a build is needed
+		debuggerConfig := debugger.Config{
+			WorkingDir:     workingDir,
+			Backend:        "default",
+			Foreground:     false,
+			CheckGoVersion: true,
+			// Enable debug logging to see RPC communication issues
+			DebugInfoDirectories: []string{},
+			DisableASLR:          false,
+		}
+		debugname, ok := utils.BuildBinary([]string{}, false)
+		if !ok {
+			log.Fatal("could not build binary")
+		}
+		// pwd
+		log.Println(fmt.Printf("built binary at %s", debugname))
+
+		// Create RPC2 server
+		server := rpccommon.NewServer(&service.Config{
+			Listener: l,
+			Debugger: debuggerConfig,
+			// TODO: figure out why IDE need this set to true
+			AcceptMulti: true, // Allow multiple connections and reconnections
+			APIVersion:  2,
+			ProcessArgs: []string{debugname},
+		})
+
+		// Enable additional logging to help debug RPC timeouts
+		log.Printf("Delve server configuration: WorkingDir=%s, Backend=%s, Binary=%s",
+			debuggerConfig.WorkingDir, debuggerConfig.Backend, debugname)
+
+		// Start Delve server in background
+		go func() {
+			if err := server.Run(); err != nil {
+				log.Fatalf("server.Run failed: %v", err)
+			}
+		}()
+		log.Println("Delve headless server started on :2345 (supports both JSON-RPC and DAP, single-client mode)")
+		go func() {
+			select {
+			case <-debuggerStopCh:
+				if err := server.Stop(); err != nil {
+					log.Printf("Error stopping Delve server: %v", err)
+				}
+				log.Println("Delve headless server stopped")
+			}
+		}()
+	case "python":
+		// Run Python debugpy server
+		// ctx := context.Background()
+		// cmd := exec.CommandContext(ctx, "python", "-m", "debugpy", "--listen", "2345", "--wait-for-client", "standalone_replay.py")
+		// cmd.Dir = "example/python" // Set working directory to the Python example
+		// cmd.Stdout = os.Stdout
+		// cmd.Stderr = os.Stderr
+		// go func() {
+		//
+		// 	log.Println("Starting Python debugpy server on :2345")
+		// 	if err := cmd.Run(); err != nil {
+		// 		log.Printf("Error running Python debugpy: %v", err)
+		// 	}
+		// }()
+		go func() {
+			select {
+			case <-debuggerStopCh:
+				// if err := cmd.Process.Kill(); err != nil {
+				// 	log.Printf("Error killing Python debugpy: %v", err)
+				// }
+				log.Println("Python debugger stopped")
+			}
+		}()
+	}
 
 	addr := fmt.Sprintf(":%d", proxyPort)
 	log.Printf("Starting delve proxy on %s (supports both DAP and JSON-RPC)", addr)
@@ -110,7 +147,7 @@ func main() {
 	}
 	defer proxyListener.Close()
 
-	// Handle shutdown signals only (allow client reconnections)
+	// Handle shutdown signals only
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
 
@@ -119,10 +156,7 @@ func main() {
 		log.Println("Received shutdown signal...")
 		log.Println("Shutting down...")
 		_ = proxyListener.Close()
-		if err := server.Stop(); err != nil {
-			log.Printf("Error stopping Delve server: %v", err)
-		}
-		log.Println("Delve headless server stopped")
+		debuggerStopCh <- struct{}{}
 		os.Exit(0)
 	}()
 

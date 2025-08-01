@@ -268,3 +268,42 @@ func ExtractLocationFromCommandResponse(jsonObj []byte) *struct {
 
 	return result
 }
+
+// Consider using a cleaner approach dap.WriteBaseMessage function to build message
+// BuildDAPMessages constructs a properly formatted DAP message with correct Content-Length header
+func BuildDAPMessages(jsonPayload []byte, remaining []byte) []byte {
+	log.Printf("building DAP Messages, jsonPayload: %s", string(jsonPayload))
+	log.Printf("building DAP Messages, remaining: %s", string(remaining))
+	// DAP messages format: Content-Length: XXX\r\n\r\n{JSON}
+	contentLength := len(jsonPayload)
+	header := fmt.Sprintf("Content-Length: %d\r\n\r\n", contentLength)
+	headerBytes := []byte(header)
+
+	// Build complete DAP message
+	dapMessage := make([]byte, len(headerBytes)+len(jsonPayload))
+	copy(dapMessage, headerBytes)
+	copy(dapMessage[len(headerBytes):], jsonPayload)
+
+	// Combine DAP message with remaining cleanBuffer data
+	modifiedBuffer := make([]byte, len(dapMessage)+len(remaining))
+	copy(modifiedBuffer, dapMessage)
+	copy(modifiedBuffer[len(dapMessage):], remaining)
+
+	log.Printf("BuildDAPMessages Complete message: %s", string(dapMessage))
+	log.Printf("BuildDAPMessages modifiedBuffer: %s", string(modifiedBuffer))
+
+	return modifiedBuffer
+}
+
+func BuildDAPMessage(jsonPayload []byte) []byte {
+	// DAP messages format: Content-Length: XXX\r\n\r\n{JSON}
+	contentLength := len(jsonPayload)
+	header := fmt.Sprintf("Content-Length: %d\r\n\r\n", contentLength)
+	headerBytes := []byte(header)
+
+	// Build complete DAP message
+	dapMessage := make([]byte, len(headerBytes)+len(jsonPayload))
+	copy(dapMessage, headerBytes)
+	copy(dapMessage[len(headerBytes):], jsonPayload)
+	return dapMessage
+}

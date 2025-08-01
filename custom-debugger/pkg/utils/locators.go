@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -16,6 +17,7 @@ func IsInAdapterCodeByPath(filePath string) bool {
 
 	// Check if this is user code (should NOT be considered adapter code)
 	workingDir := Pwd()
+	fmt.Printf("workingDir: %s\n", workingDir)
 	if IsUserCodeFile(filePath, workingDir) {
 		return false
 	}
@@ -30,7 +32,9 @@ func IsInAdapterCodeByPath(filePath string) bool {
 		strings.Contains(filePath, "go.temporal.io/sdk@") ||
 		// Other Go runtime/reflection code that might be encountered
 		strings.Contains(filePath, "/runtime/") ||
-		strings.Contains(filePath, "/reflect/")
+		strings.Contains(filePath, "/reflect/") ||
+		strings.Contains(filePath, "replayer-adapter-python/") ||
+		strings.Contains(filePath, "replayer.py")
 }
 
 // Pwd returns the current working directory
@@ -76,6 +80,7 @@ func IsUserCodeFile(filePath, workingDir string) bool {
 	// Exclude known adapter/framework paths even if they're in working directory
 	if strings.Contains(filePath, "replayer-adapter/") ||
 		strings.Contains(filePath, "custom-debugger/") ||
+		strings.Contains(filePath, "replayer-adapter-python/") ||
 		strings.Contains(filePath, "vendor/") ||
 		strings.Contains(filePath, ".git/") {
 		return false

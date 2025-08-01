@@ -5,7 +5,7 @@ import os
 import requests
 from typing import Any, Dict, List, Optional, Type
 from temporalio.client import WorkflowHistory
-from temporalio.worker import Replayer, ReplayerConfig
+from temporalio.worker import Replayer, ReplayerConfig, UnsandboxedWorkflowRunner
 from temporalio.worker import (
     WorkflowInboundInterceptor, WorkflowOutboundInterceptor,
     ActivityInboundInterceptor, ActivityOutboundInterceptor, Interceptor,
@@ -45,8 +45,9 @@ def is_breakpoint(event_id: int) -> bool:
     """Check if the given event ID is a breakpoint"""
     global breakpoints, mode, debugger_addr
     if mode == ReplayMode.STANDALONE:
-        print(f"Standalone checking breakpoints: {breakpoints}")
-        logger.debug(f"Standalone checking breakpoints: {breakpoints}")
+        print(f"Standalone checking breakpoints: {breakpoints}, even_id: {event_id}")
+        if event_id in breakpoints:
+            print(f"Hit breakpoint at event_id: {event_id}")
         return event_id in breakpoints
     elif mode == ReplayMode.IDE:
         if not debugger_addr:
@@ -102,8 +103,8 @@ def raise_sentinel_breakpoint(caller: str, info: Optional[Any]):
             if mode == ReplayMode.IDE:
                 highlight_current_event_in_ide(event_id)
             # Python equivalent of runtime.Breakpoint()
-            # Note: Uncomment the next line for debugging with pdb
-            # import pdb; pdb.set_trace()
+            # Since we run outside the sandbox, breakpoint() works normally
+            breakpoint()
 
 # Interceptor Classes
 class RunnerWorkflowInboundInterceptor(WorkflowInboundInterceptor):
@@ -334,6 +335,8 @@ def replay_with_history(opts: ReplayerConfig, hist: dict, wf: Any):
     replayer = Replayer(
         workflows=[wf],
         interceptors=interceptors,
+        workflow_runner=UnsandboxedWorkflowRunner(),  # Run outside sandbox for debugging
+        debug_mode=True,
     )
     return replayer.replay_workflow(hist)
 
@@ -346,5 +349,7 @@ def replay_with_json_file(opts: ReplayerConfig, wf: Any, json_file_name: str):
     replayer = Replayer(
         workflows=[wf],
         interceptors=interceptors,
+        workflow_runner=UnsandboxedWorkflowRunner(),  # Run outside sandbox for debugging,
+        debug_mode=True,
     )
     return replayer.replay_workflow(WorkflowHistory.from_json("replayed-worker", hist))
