@@ -1,6 +1,4 @@
-// Package daptest provides a sample client with utilities
-// for DAP mode testing.
-package daptest
+package dap_client
 
 //go:generate go run ./gen/main.go -o ./resp.go
 

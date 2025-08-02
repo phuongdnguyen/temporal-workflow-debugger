@@ -1,4 +1,4 @@
-package utils
+package locators
 
 import (
 	"fmt"
@@ -30,7 +30,7 @@ func IsInAdapterCodeByPath(filePath string) bool {
 		// ALL Temporal SDK code (both versioned and non-versioned paths)
 		strings.Contains(filePath, "go.temporal.io/sdk/") ||
 		strings.Contains(filePath, "go.temporal.io/sdk@") ||
-		// Other Go runtime/reflection code that might be encountered
+		// Other GoDelve runtime/reflection code that might be encountered
 		strings.Contains(filePath, "/runtime/") ||
 		strings.Contains(filePath, "/reflect/") ||
 		strings.Contains(filePath, "replayer-adapter-python/") ||
@@ -86,7 +86,7 @@ func IsUserCodeFile(filePath, workingDir string) bool {
 		return false
 	}
 
-	// Also exclude Temporal SDK and Go runtime code (should be outside working dir anyway)
+	// Also exclude Temporal SDK and GoDelve runtime code (should be outside working dir anyway)
 	if strings.Contains(filePath, "go.temporal.io/sdk/") ||
 		strings.Contains(filePath, "go.temporal.io/sdk@") ||
 		strings.Contains(filePath, "/runtime/") ||

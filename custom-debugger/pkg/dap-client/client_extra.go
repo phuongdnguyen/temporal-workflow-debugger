@@ -1,4 +1,4 @@
-package daptest
+package dap_client
 
 import (
 	"encoding/json"
@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/go-dap"
 
-	"custom-debugger/pkg/utils"
+	"custom-debugger/pkg/extractors"
 )
 
 // GetThreadsResponse reads a protocol message from the connection
@@ -63,7 +63,7 @@ func (c *Client) GetNextResponseWithFiltering() (resp *dap.NextResponse, remaini
 			if err != nil {
 				return nil, nil, err
 			}
-			remaining = append(remaining, utils.BuildDAPMessage(b)...)
+			remaining = append(remaining, extractors.BuildDAPMessage(b)...)
 			return msg, remaining, nil
 		default:
 			// Buffer other messages and continue waiting
@@ -73,7 +73,7 @@ func (c *Client) GetNextResponseWithFiltering() (resp *dap.NextResponse, remaini
 			if err != nil {
 				return nil, nil, fmt.Errorf("could not marshal buffering message in Client.NextResponse: %w", err)
 			}
-			remaining = append(remaining, utils.BuildDAPMessage(b)...)
+			remaining = append(remaining, extractors.BuildDAPMessage(b)...)
 		}
 	}
 }
@@ -91,7 +91,7 @@ func (c *Client) GetThreadsResponseWithFiltering() (resp *dap.ThreadsResponse, r
 			if err != nil {
 				return nil, nil, err
 			}
-			remaining = append(remaining, utils.BuildDAPMessage(b)...)
+			remaining = append(remaining, extractors.BuildDAPMessage(b)...)
 			return msg, remaining, nil
 		default:
 			log.Printf("Client.GetThreadsResponseWithFiltering buffering message type %T", msg)
@@ -99,7 +99,7 @@ func (c *Client) GetThreadsResponseWithFiltering() (resp *dap.ThreadsResponse, r
 			if err != nil {
 				return nil, nil, fmt.Errorf("could not marshal buffering message in Client.ThreadsResponse: %w", err)
 			}
-			remaining = append(remaining, utils.BuildDAPMessage(b)...)
+			remaining = append(remaining, extractors.BuildDAPMessage(b)...)
 		}
 	}
 }
@@ -117,7 +117,7 @@ func (c *Client) GetStacktraceResponseWithFiltering() (resp *dap.StackTraceRespo
 			if err != nil {
 				return nil, nil, err
 			}
-			remaining = append(remaining, utils.BuildDAPMessage(b)...)
+			remaining = append(remaining, extractors.BuildDAPMessage(b)...)
 			return msg, remaining, nil
 		default:
 			log.Printf("Client.GetStacktraceResponseWithFiltering buffering message type %T\n", msg)
@@ -125,7 +125,7 @@ func (c *Client) GetStacktraceResponseWithFiltering() (resp *dap.StackTraceRespo
 			if err != nil {
 				return nil, nil, fmt.Errorf("could not marshal buffering message in Client.StacktraceResponse: %w", err)
 			}
-			remaining = append(remaining, utils.BuildDAPMessage(b)...)
+			remaining = append(remaining, extractors.BuildDAPMessage(b)...)
 		}
 	}
 }

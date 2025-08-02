@@ -62,8 +62,8 @@ func IsConnectionClosedError(err error) bool {
 	return false
 }
 
-// DialDelveWithRetry attempts to connect to Delve server with retry logic
-func DialDelveWithRetry(addr string, maxRetries int, delay time.Duration) (net.Conn, error) {
+// DialWithRetry attempts to connect to Delve server with retry logic
+func DialWithRetry(addr string, maxRetries int, delay time.Duration) (net.Conn, error) {
 	var lastErr error
 
 	for i := 0; i < maxRetries; i++ {
@@ -127,12 +127,4 @@ func NormalizeID(id interface{}) string {
 	default:
 		return fmt.Sprintf("%v", v)
 	}
-}
-
-func GetLang() string {
-	lang := os.Getenv("LANGUAGE")
-	if lang == "" {
-		lang = "go"
-	}
-	return lang
 }

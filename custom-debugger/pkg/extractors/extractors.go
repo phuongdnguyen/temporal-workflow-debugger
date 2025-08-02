@@ -1,4 +1,4 @@
-package utils
+package extractors
 
 import (
 	"bytes"
@@ -8,7 +8,6 @@ import (
 	"strconv"
 
 	"github.com/go-delve/delve/service/api"
-	"github.com/google/go-dap"
 )
 
 // ExtractDAPMessage extracts a DAP message with Content-Length header
@@ -272,8 +271,8 @@ func ExtractLocationFromCommandResponse(jsonObj []byte) *struct {
 // Consider using a cleaner approach dap.WriteBaseMessage function to build message
 // BuildDAPMessages constructs a properly formatted DAP message with correct Content-Length header
 func BuildDAPMessages(jsonPayload []byte, remaining []byte) []byte {
-	log.Printf("building DAP Messages, jsonPayload: %s", string(jsonPayload))
-	log.Printf("building DAP Messages, remaining: %s", string(remaining))
+	log.Printf("Building DAP Messages, jsonPayload: %s", string(jsonPayload))
+	log.Printf("Building DAP Messages, remaining: %s", string(remaining))
 	// DAP messages format: Content-Length: XXX\r\n\r\n{JSON}
 	contentLength := len(jsonPayload)
 	header := fmt.Sprintf("Content-Length: %d\r\n\r\n", contentLength)
@@ -306,22 +305,4 @@ func BuildDAPMessage(jsonPayload []byte) []byte {
 	copy(dapMessage, headerBytes)
 	copy(dapMessage[len(headerBytes):], jsonPayload)
 	return dapMessage
-}
-
-// BuildDAPMessageFromProtocolMessage construct a message with content-length header from payload
-func BuildDAPMessageFromProtocolMessage(payload dap.Message) ([]byte, error) {
-	b, err := json.Marshal(payload)
-	if err != nil {
-		return nil, err
-	}
-	// DAP messages format: Content-Length: XXX\r\n\r\n{JSON}
-	contentLength := len(b)
-	header := fmt.Sprintf("Content-Length: %d\r\n\r\n", contentLength)
-	headerBytes := []byte(header)
-
-	// Build complete DAP message
-	dapMessage := make([]byte, len(headerBytes)+len(b))
-	copy(dapMessage, headerBytes)
-	copy(dapMessage[len(headerBytes):], b)
-	return dapMessage, nil
 }

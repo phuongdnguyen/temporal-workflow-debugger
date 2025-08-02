@@ -12,6 +12,8 @@ import (
 	"github.com/go-delve/delve/service/api"
 	"github.com/go-delve/delve/service/rpc2"
 
+	"custom-debugger/pkg/extractors"
+	"custom-debugger/pkg/locators"
 	"custom-debugger/pkg/utils"
 )
 
@@ -151,7 +153,7 @@ func (rir *ResponseInterceptingReader) parseResponses() []byte {
 		iterations++
 
 		// Try to find a complete JSON object in the buffer
-		jsonObj, remaining, found := utils.ExtractJSONRPCMessage(rir.buffer)
+		jsonObj, remaining, found := extractors.ExtractJSONRPCMessage(rir.buffer)
 		if !found {
 			// No complete JSON object found, wait for more data
 			break
@@ -190,7 +192,7 @@ func (rir *ResponseInterceptingReader) parseResponses() []byte {
 		}
 
 		// Parse JSON-RPC response only
-		var resp utils.JSONRPCResponse
+		var resp extractors.JSONRPCResponse
 		if err := json.Unmarshal(jsonObj, &resp); err == nil {
 			normalizedID := utils.NormalizeID(resp.ID)
 
@@ -306,7 +308,7 @@ func (rir *ResponseInterceptingReader) parseResponses() []byte {
 }
 
 func (rir *ResponseInterceptingReader) filterStacktraceResponse(jsonObj []byte, remaining []byte) []byte {
-	var response utils.JSONRPCResponse
+	var response extractors.JSONRPCResponse
 	if err := json.Unmarshal(jsonObj, &response); err != nil {
 		log.Printf("[%s] Failed to parse JSON-RPC response for filtering: %v", rir.clientAddr, err)
 		return nil
@@ -335,12 +337,12 @@ func (rir *ResponseInterceptingReader) filterStacktraceResponse(jsonObj []byte, 
 	// and keep all frames from 0 up to and including that frame (this includes user code in other files)
 	filteredLocations := stacktraceOut.Locations
 	userCodeFrameIndex := -1
-	workingDir := utils.Pwd()
+	workingDir := locators.Pwd()
 
 	// Find the LAST/DEEPEST occurrence of user code (highest index) - this is the actual user entry point
 	for i := len(stacktraceOut.Locations) - 1; i >= 0; i-- {
 		frame := stacktraceOut.Locations[i]
-		if utils.IsUserCodeFile(frame.File, workingDir) {
+		if locators.IsUserCodeFile(frame.File, workingDir) {
 			userCodeFrameIndex = i
 			break // Found the deepest user code frame
 		}
@@ -411,7 +413,7 @@ func (rir *ResponseInterceptingReader) filterStacktraceResponse(jsonObj []byte, 
 }
 
 func (rir *ResponseInterceptingReader) logStacktraceResponse(jsonLine string) {
-	var response utils.JSONRPCResponse
+	var response extractors.JSONRPCResponse
 	if err := json.Unmarshal([]byte(jsonLine), &response); err != nil {
 		log.Printf("[%s] Failed to parse JSON-RPC response: %v", rir.clientAddr, err)
 		return
@@ -454,7 +456,7 @@ func (rir *ResponseInterceptingReader) LogDebuggingSummary() {
 }
 
 func (rir *ResponseInterceptingReader) logStateResponse(jsonLine string) {
-	var resp utils.JSONRPCResponse
+	var resp extractors.JSONRPCResponse
 	if err := json.Unmarshal([]byte(jsonLine), &resp); err != nil {
 		log.Printf("[%s] Failed to parse JSON-RPC response: %v", rir.clientAddr, err)
 		return
@@ -591,10 +593,10 @@ func (rir *ResponseInterceptingReader) logStacktraceResponseDetails(stacktraceOu
 	userCodeFrameIndex := -1
 
 	// Get working directory (you may need to pass this in or get it from context)
-	workingDir := utils.Pwd() // This function needs to be implemented
+	workingDir := locators.Pwd() // This function needs to be implemented
 
 	for i, frame := range stacktraceOut.Locations {
-		if utils.IsUserCodeFile(frame.File, workingDir) {
+		if locators.IsUserCodeFile(frame.File, workingDir) {
 			userCodeFrameIndex = i
 			filteredLocations = stacktraceOut.Locations[i:]
 			break
@@ -718,7 +720,7 @@ func (rir *ResponseInterceptingReader) isAutoStepInternalResponse(responseID str
 
 // storeCurrentLocationFromCommandResponse extracts and stores current location from Command response
 func (rir *ResponseInterceptingReader) storeCurrentLocationFromCommandResponse(jsonObj []byte) {
-	var response utils.JSONRPCResponse
+	var response extractors.JSONRPCResponse
 	if err := json.Unmarshal(jsonObj, &response); err != nil {
 		log.Printf("%s ❌ Failed to parse Command response for location storage: %v", rir.logPrefix, err)
 		return
@@ -791,7 +793,7 @@ func (rir *ResponseInterceptingReader) storeCurrentLocationFromCommandResponse(j
 // isCommandResponseAtSentinelBreakpoint checks if a Command response shows we've stopped at a sentinel breakpoint
 // This now detects ANY step-over that lands in adapter code, not just specific notifyRunner function
 func (rir *ResponseInterceptingReader) isCommandResponseAtSentinelBreakpoint(jsonObj []byte) bool {
-	var response utils.JSONRPCResponse
+	var response extractors.JSONRPCResponse
 	if err := json.Unmarshal(jsonObj, &response); err != nil {
 		log.Printf("%s ❌ Failed to parse Command response for sentinel check: %v", rir.logPrefix, err)
 		return false
@@ -845,7 +847,7 @@ func (rir *ResponseInterceptingReader) isCommandResponseAtSentinelBreakpoint(jso
 
 	// ENHANCED SENTINEL DETECTION: Check if we've stepped into ANY adapter code
 	// This includes replayer-adapter/, Temporal SDK code, or any non-workflow code
-	isInAdapter := utils.IsInAdapterCodeByPath(currentFile)
+	isInAdapter := locators.IsInAdapterCodeByPath(currentFile)
 
 	if isInAdapter {
 		log.Printf("%s SENTINEL DETECTED (ADAPTER CODE): %s:%d", rir.logPrefix, currentFile, currentLine)
@@ -874,7 +876,7 @@ func (rir *ResponseInterceptingReader) performDirectAutoStepping(jsonObj []byte,
 	// Extract starting location from current response for logging
 	var startFile, startFunction string
 	var startLine int
-	if response := utils.ExtractLocationFromCommandResponse(jsonObj); response != nil {
+	if response := extractors.ExtractLocationFromCommandResponse(jsonObj); response != nil {
 		startFile = response.File
 		startLine = response.Line
 		startFunction = response.Function
@@ -960,7 +962,7 @@ func (rir *ResponseInterceptingReader) performDirectAutoStepping(jsonObj []byte,
 		rir.stateMutex.Unlock()
 
 		// Check if we're still in adapter code
-		isInAdapter := utils.IsInAdapterCodeByPath(currentFile)
+		isInAdapter := locators.IsInAdapterCodeByPath(currentFile)
 
 		if isInAdapter {
 			log.Printf("%s AUTO-STEP: Step %d - still in adapter: %s:%d (%s)",
