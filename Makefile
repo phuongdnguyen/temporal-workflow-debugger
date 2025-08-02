@@ -1,11 +1,14 @@
-simple:
-	cd custom-debugger && go clean && go build -o ../tdlv.build && cd ../example/simple-workflow && ../../tdlv.build
+go-simple:
+	cd custom-debugger && go clean && go build -o ../tdlv.build && cd ../example/go//simple-workflow && ../../tdlv.build --lang=go
 
-structured-ide-integrated:
-	cd custom-debugger && go clean && go build -o ../tdlv.build && cd ../example/structured-workflow/replay-debug-ide-integrated && ../../../tdlv.build
+go-structured-ide-integrated:
+	cd custom-debugger && go clean && go build -o ../tdlv.build && cd ../example/go/structured-workflow/replay-debug-ide-integrated && ../../../../tdlv.build --lang=go
 
-structured-standalone:
-	cd custom-debugger && go clean && go build -o ../tdlv.build && cd ../example/structured-workflow/replay-debug-standalone && ../../../tdlv.build
+go-structured-standalone:
+	cd custom-debugger && go clean && go build -o ../tdlv.build && cd ../example/go/structured-workflow/replay-debug-standalone && ../../../../tdlv.build --lang=go
+
+python:
+	cd custom-debugger && go clean && go build -o ../tdlv.build && cd .. && ./tdlv.build --lang=python
 
 build:
 	cd custom-debugger && go clean && go build -o ../tdlv.build

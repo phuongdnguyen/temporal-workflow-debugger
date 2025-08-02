@@ -1,0 +1,21 @@
+# Include the README and license files
+include README.md
+include LICENSE
+
+# Include requirements file
+include requirements.txt
+
+# Include example files
+include example.py
+
+# Include all Python files
+recursive-include replayer_adapter_python *.py
+
+# Exclude development and build files
+exclude .gitignore
+exclude *.pyc
+exclude __pycache__
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]
+recursive-exclude * *.so
+recursive-exclude * .DS_Store 

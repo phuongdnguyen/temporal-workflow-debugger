@@ -8,27 +8,26 @@ import (
 	"net"
 	"time"
 
-	"github.com/go-delve/delve/service/rpc2"
-
-	delve_dap "custom-debugger/pkg/dap-interceptors"
+	"custom-debugger/pkg/dap-client"
+	dapinterceptors "custom-debugger/pkg/dap-interceptors"
 	"custom-debugger/pkg/utils"
 )
 
-// dapHandler proxies DAP traffic transparently between the client and Delve.
+// dapHandler proxies DAP traffic transparently between the client and Debugger.
 func dapHandler(clientTCP net.Conn, br *bufio.Reader) {
 	clientAddr := clientTCP.RemoteAddr().String()
 
-	// Dial Delve
-	delveTCP, err := utils.DialDelveWithRetry("localhost:2345", 3, time.Second)
+	// Dial Debugger
+	debuggerTCP, err := utils.DialWithRetry("localhost:2345", 3, time.Second)
 	if err != nil {
-		log.Printf("Error connecting to Delve server for %s: %v", clientAddr, err)
+		log.Printf("Error connecting to Debugger for %s: %v", clientAddr, err)
 		_ = clientTCP.Close()
 		return
 	}
-	log.Printf("%s: Connected to Delve for DAP forwarding", clientAddr)
+	log.Printf("%s: Connected to Debugger for DAP forwarding", clientAddr)
 
-	// Set keep-alive for delve connection too
-	if tcpConn, ok := delveTCP.(*net.TCPConn); ok {
+	// Set keep-alive for Debugger connection too
+	if tcpConn, ok := debuggerTCP.(*net.TCPConn); ok {
 		if err := tcpConn.SetKeepAlive(true); err != nil {
 			log.Printf("Error enable keep alive on client connection: %v", err)
 		}
@@ -39,11 +38,11 @@ func dapHandler(clientTCP net.Conn, br *bufio.Reader) {
 
 	// Set timeouts for delve connection as well
 	// No read timeout for delve
-	if err := delveTCP.SetReadDeadline(time.Time{}); err != nil {
+	if err := debuggerTCP.SetReadDeadline(time.Time{}); err != nil {
 		log.Printf("Error setting read deadline on client connection: %v", err)
 	}
 	// No write timeout for delve
-	if err := delveTCP.SetWriteDeadline(time.Time{}); err != nil {
+	if err := debuggerTCP.SetWriteDeadline(time.Time{}); err != nil {
 		log.Printf("Error setting write deadline on client connection: %v", err)
 	}
 
@@ -54,7 +53,7 @@ func dapHandler(clientTCP net.Conn, br *bufio.Reader) {
 			log.Printf("Error closing client connection: %v", err)
 		}
 
-		if err := delveTCP.Close(); err != nil {
+		if err := debuggerTCP.Close(); err != nil {
 			log.Printf("Error closing delve connection: %v", err)
 		}
 
@@ -64,32 +63,32 @@ func dapHandler(clientTCP net.Conn, br *bufio.Reader) {
 	// Channel to signal when one side closes
 	done := make(chan struct{}, 2)
 
-	// Create delve client for auto-stepping operations
-	delveClient := rpc2.NewClient("localhost:2345")
-	delveReader := delve_dap.NewDAPResponseInterceptingReader(delveClient, delveTCP,
-		fmt.Sprintf("Delve -> Client %s", clientAddr))
+	// Create dap client for auto-stepping operations
+	debugger := dap_client.NewClient("localhost:2345")
+	dapReader := dapinterceptors.NewDAPResponseInterceptingReader(nil, debugger, debuggerTCP,
+		fmt.Sprintf("Debugger -> Client %s", clientAddr))
 
-	// goroutine: client -> delve (use buffered reader to include the peeked byte)
+	// goroutine: client -> debugger (use buffered reader to include the peeked byte)
 	go func() {
 		defer func() {
-			log.Printf("Client->Delve goroutine ending for %s", clientAddr)
+			log.Printf("Client->Debugger goroutine ending for %s", clientAddr)
 			done <- struct{}{}
 		}()
-		clientReader := delve_dap.NewRequestInterceptingReader(br, delveReader)
-		written, err := io.Copy(delveTCP, clientReader)
+		clientReader := dapinterceptors.NewRequestInterceptingReader(br, "Client -> Debugger")
+		written, err := io.Copy(debuggerTCP, clientReader)
 		if err != nil {
 			log.Printf("Error copying request from client to debugger: %v", err)
 		}
 		log.Printf("%d bytes copied from client to debugger", written)
 	}()
 
-	// goroutine: delve -> client (direct)
+	// goroutine: debugger -> client (direct)
 	go func() {
 		defer func() {
 			log.Printf("Delve->Client goroutine ending for %s", clientAddr)
 			done <- struct{}{}
 		}()
-		written, err := io.Copy(clientTCP, delveReader)
+		written, err := io.Copy(clientTCP, dapReader)
 		if err != nil {
 			log.Printf("Error copying response from debugger to client: %v", err)
 		}

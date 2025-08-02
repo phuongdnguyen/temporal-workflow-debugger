@@ -40,7 +40,7 @@ func jsonRPCHandler(clientTCP net.Conn, br *bufio.Reader) {
 	}
 
 	// Dial real Delve with retry logic
-	delveTCP, err := utils.DialDelveWithRetry("localhost:2345", 3, time.Second)
+	delveTCP, err := utils.DialWithRetry("localhost:2345", 3, time.Second)
 	if err != nil {
 		log.Printf("Error connecting to Delve server for %s after retries: %v", clientAddr, err)
 		if err := clientTCP.Close(); err != nil {

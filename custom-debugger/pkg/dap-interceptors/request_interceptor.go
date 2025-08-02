@@ -4,24 +4,23 @@ import (
 	"encoding/json"
 	"io"
 	"log"
+	"os"
 
-	"custom-debugger/pkg/utils"
+	"custom-debugger/pkg/extractors"
 )
 
 type RequestInterceptingReader struct {
-	reader io.Reader
-	// For framing mapping when intercepting eval request from client
-	responseReader  *ResponseInterceptingReader
+	reader          io.Reader
 	logPrefix       string
 	cleanBuffer     []byte
-	dirtyBuffer     []byte
 	allRequestCount int
+	log             *log.Logger
 }
 
-func NewRequestInterceptingReader(reader io.Reader, responseReader *ResponseInterceptingReader) *RequestInterceptingReader {
+func NewRequestInterceptingReader(reader io.Reader, logPrefix string) *RequestInterceptingReader {
 	return &RequestInterceptingReader{
-		reader:         reader,
-		responseReader: responseReader,
+		reader: reader,
+		log:    log.New(os.Stdout, logPrefix, log.LstdFlags),
 	}
 }
 
@@ -66,10 +65,10 @@ func (rir *RequestInterceptingReader) transformRequest() []byte {
 	for len(rir.cleanBuffer) > 0 {
 		// Try to find a complete JSON object in the cleanBuffer
 		log.Println("calling utils.ExtractDAPMessage from request handler")
-		jsonObj, remaining, found, _ := utils.ExtractDAPMessage(rir.cleanBuffer)
+		jsonObj, remaining, found, _ := extractors.ExtractDAPMessage(rir.cleanBuffer)
 		if !found {
-			log.Printf("RequestInterceptingReader.transformRequest can not extract json object from %s",
-				rir.cleanBuffer)
+			log.Printf("Can not extract json object from %s",
+				string(rir.cleanBuffer))
 			break
 		}
 
@@ -82,14 +81,20 @@ func (rir *RequestInterceptingReader) transformRequest() []byte {
 		jsonStr := string(jsonObj)
 		log.Printf("%s 📤 DAP REQUEST #%d (%d bytes): %s", rir.logPrefix, requestNum, len(jsonObj), jsonStr[:min(150, len(jsonStr))])
 
-		var dapReq utils.DAPRequest
+		var dapReq DAPRequest
 		if err := json.Unmarshal(jsonObj, &dapReq); err == nil && dapReq.Type == "request" {
-			switch dapReq.Command {
-			default:
-				log.Printf("%s DAP Request #%d: %s (seq: %d)", rir.logPrefix, requestNum, dapReq.Command, dapReq.Seq)
-			}
+			log.Printf("%s DAP Request #%d: %s (seq: %d)", rir.logPrefix, requestNum, dapReq.Command, dapReq.Seq)
 		}
 	}
 
 	return nil // No modifications needed
+}
+
+// DAP message structures
+
+type DAPRequest struct {
+	Seq       int         `json:"seq"`
+	Type      string      `json:"type"`
+	Command   string      `json:"command"`
+	Arguments interface{} `json:"arguments"`
 }

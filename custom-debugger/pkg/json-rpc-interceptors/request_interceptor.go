@@ -7,6 +7,7 @@ import (
 	"log"
 	"sync"
 
+	"custom-debugger/pkg/extractors"
 	"custom-debugger/pkg/utils"
 )
 
@@ -101,7 +102,7 @@ func (rir *RequestInterceptingReader) Read(p []byte) (n int, err error) {
 func (rir *RequestInterceptingReader) parseAndModifyRequests() []byte {
 	for len(rir.buffer) > 0 {
 		// Try to find a complete JSON object in the buffer
-		jsonObj, remaining, found := utils.ExtractJSONRPCMessage(rir.buffer)
+		jsonObj, remaining, found := extractors.ExtractJSONRPCMessage(rir.buffer)
 		if !found {
 			break
 		}
@@ -117,7 +118,7 @@ func (rir *RequestInterceptingReader) parseAndModifyRequests() []byte {
 		log.Printf("%s REQUEST #%d (%d bytes): %s", rir.logPrefix, requestNum, len(jsonObj), jsonStr[:utils.Min(150, len(jsonStr))])
 
 		// Parse JSON-RPC request
-		var req utils.JSONRPCRequest
+		var req extractors.JSONRPCRequest
 		if err := json.Unmarshal(jsonObj, &req); err == nil {
 			normalizedID := utils.NormalizeID(req.ID)
 
@@ -183,7 +184,7 @@ func (rir *RequestInterceptingReader) translateEvalFrameNumber(jsonObj []byte, r
 	log.Printf("%s ENTERING translateEvalFrameNumber for request #%d", rir.logPrefix, requestNum)
 
 	// Parse the JSON-RPC request
-	var req utils.JSONRPCRequest
+	var req extractors.JSONRPCRequest
 	if err := json.Unmarshal(jsonObj, &req); err != nil {
 		log.Printf("%s Failed to parse Eval request for frame translation: %v", rir.logPrefix, err)
 		return nil
@@ -301,7 +302,7 @@ func (rir *RequestInterceptingReader) translateFrameBasedRequest(jsonObj []byte,
 	log.Printf("%s ENTERING translateFrameBasedRequest for %s request #%d", rir.logPrefix, method, requestNum)
 
 	// Parse the JSON-RPC request
-	var req utils.JSONRPCRequest
+	var req extractors.JSONRPCRequest
 	if err := json.Unmarshal(jsonObj, &req); err != nil {
 		log.Printf("%s Failed to parse %s request for frame translation: %v", rir.logPrefix, method, err)
 		return nil
@@ -414,7 +415,7 @@ func (rir *RequestInterceptingReader) translateFrameBasedRequest(jsonObj []byte,
 }
 
 // isStepOverCommand checks if a JSON-RPC request is a step over command
-func (rir *RequestInterceptingReader) isStepOverCommand(req utils.JSONRPCRequest) bool {
+func (rir *RequestInterceptingReader) isStepOverCommand(req extractors.JSONRPCRequest) bool {
 	if req.Params == nil {
 		return false
 	}
@@ -444,7 +445,7 @@ func (rir *RequestInterceptingReader) isStepOverCommand(req utils.JSONRPCRequest
 }
 
 // extractCommandNameFromRequest extracts the actual command logPrefix (next, continue, step, etc.) from a Command request
-func (rir *RequestInterceptingReader) extractCommandNameFromRequest(req utils.JSONRPCRequest) string {
+func (rir *RequestInterceptingReader) extractCommandNameFromRequest(req extractors.JSONRPCRequest) string {
 	if req.Params == nil {
 		return "unknown"
 	}

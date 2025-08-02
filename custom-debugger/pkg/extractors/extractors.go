@@ -1,4 +1,4 @@
-package utils
+package extractors
 
 import (
 	"bytes"
@@ -17,7 +17,6 @@ func ExtractDAPMessage(data []byte) (jsonObj []byte, remainingCompletedJsonObjs 
 		log.Printf("ExtractDAPMessage, input data is empty")
 		return nil, data, false, nil
 	}
-	fmt.Printf("#########\n ExtractDAPMessage: input data:\n %s \n########\n", string(data))
 	// DAP format: Content-Length: XXX\r\n\r\n{JSON}
 
 	// Safety check: don't process unreasonably large data
@@ -70,10 +69,10 @@ func ExtractDAPMessage(data []byte) (jsonObj []byte, remainingCompletedJsonObjs 
 	remaining := data[jsonEnd:]
 	offset := FirstInvalidDAP(remaining)
 	if offset == -1 {
-		log.Printf("ExtractDAPMessage, the remainings are valid json objects %s\n", string(remaining))
+		// log.Printf("ExtractDAPMessage, the remainings are valid json objects %s\n", string(remaining))
 		return jsonObj, remaining, true, nil
 	}
-	log.Printf("ExtractDAPMessage, remaining incompleted jsonObjs is %s\n", string(remaining[offset:]))
+	// log.Printf("ExtractDAPMessage, remaining incompleted jsonObjs is %s\n", string(remaining[offset:]))
 	return jsonObj, remaining[:offset], true, remaining[offset:]
 }
 
@@ -267,4 +266,43 @@ func ExtractLocationFromCommandResponse(jsonObj []byte) *struct {
 	}
 
 	return result
+}
+
+// Consider using a cleaner approach dap.WriteBaseMessage function to build message
+// BuildDAPMessages constructs a properly formatted DAP message with correct Content-Length header
+func BuildDAPMessages(jsonPayload []byte, remaining []byte) []byte {
+	log.Printf("Building DAP Messages, jsonPayload: %s", string(jsonPayload))
+	log.Printf("Building DAP Messages, remaining: %s", string(remaining))
+	// DAP messages format: Content-Length: XXX\r\n\r\n{JSON}
+	contentLength := len(jsonPayload)
+	header := fmt.Sprintf("Content-Length: %d\r\n\r\n", contentLength)
+	headerBytes := []byte(header)
+
+	// Build complete DAP message
+	dapMessage := make([]byte, len(headerBytes)+len(jsonPayload))
+	copy(dapMessage, headerBytes)
+	copy(dapMessage[len(headerBytes):], jsonPayload)
+
+	// Combine DAP message with remaining cleanBuffer data
+	modifiedBuffer := make([]byte, len(dapMessage)+len(remaining))
+	copy(modifiedBuffer, dapMessage)
+	copy(modifiedBuffer[len(dapMessage):], remaining)
+
+	log.Printf("BuildDAPMessages Complete message: %s", string(dapMessage))
+	log.Printf("BuildDAPMessages modifiedBuffer: %s", string(modifiedBuffer))
+
+	return modifiedBuffer
+}
+
+func BuildDAPMessage(jsonPayload []byte) []byte {
+	// DAP messages format: Content-Length: XXX\r\n\r\n{JSON}
+	contentLength := len(jsonPayload)
+	header := fmt.Sprintf("Content-Length: %d\r\n\r\n", contentLength)
+	headerBytes := []byte(header)
+
+	// Build complete DAP message
+	dapMessage := make([]byte, len(headerBytes)+len(jsonPayload))
+	copy(dapMessage, headerBytes)
+	copy(dapMessage[len(headerBytes):], jsonPayload)
+	return dapMessage
 }
