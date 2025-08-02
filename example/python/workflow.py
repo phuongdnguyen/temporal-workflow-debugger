@@ -76,6 +76,7 @@ class UserOnboardingWorkflow:
         
         # Step 2: Validate user data
         print("Step 2: Validating user data...")
+        # Event 9
         is_valid = await workflow.execute_activity(
             validate_user_data,
             user_data,
@@ -87,6 +88,7 @@ class UserOnboardingWorkflow:
         
         # Step 3: Send welcome email
         print("Step 3: Sending welcome email...")
+        # Event 15
         email_result = await workflow.execute_activity(
             send_welcome_email,
             user_data,
@@ -94,6 +96,7 @@ class UserOnboardingWorkflow:
         )
         
         # Step 4: Create user profile
+        # Event 21
         print("Step 4: Creating user profile...")
         profile = await workflow.execute_activity(
             create_user_profile,

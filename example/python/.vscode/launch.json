@@ -10,14 +10,14 @@
                 "port": 60000
             },
         },
-        // {
-        //     "name": "Python: Attach to debugpy (2345)",
-        //     "type": "debugpy",
-        //     "request": "attach",
-        //     "connect": {
-        //         "host": "localhost",
-        //         "port": 2345
-        //     }
-        // }
+        {
+            "name": "Python: Attach to debugpy (2345)",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 2345
+            }
+        }
     ]
 }
