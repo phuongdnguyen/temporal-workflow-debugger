@@ -43,13 +43,13 @@ func (rir *ResponseInterceptingReader) Read(p []byte) (n int, err error) {
 	if err != nil {
 		log.Printf("failed to read response from Delve server: %v", err)
 	}
-	log.Printf("Read %d bytes from delve", n)
+	log.Printf("About to process %d bytes from delve", n)
 	if n > 0 {
 		// Create a copy of the data for buffering to avoid modifying the original
 		dataCopy := make([]byte, n)
 		copy(dataCopy, p[:n])
 		rir.bufferLock.Lock()
-		// Append to cleanBuffer for JSON-RPC parsing
+		// Append to cleanBuffer for DAP parsing
 		log.Printf("Current cleanBuffer: %s\n", string(rir.cleanBuffer))
 		if len(rir.dirtyBuffer) > 0 {
 			log.Printf("Appending data from previous dirty buffer: %s", string(rir.dirtyBuffer))
@@ -60,7 +60,7 @@ func (rir *ResponseInterceptingReader) Read(p []byte) (n int, err error) {
 		log.Printf("Appending data from delve: %s", string(dataCopy))
 		rir.cleanBuffer = append(rir.cleanBuffer, dataCopy...)
 		rir.bufferLock.Unlock()
-		// Try to extract complete JSON-RPC messages and potentially modify them
+		// Try to extract complete DAP messages and potentially modify them
 		modifiedData := rir.transformResponse()
 
 		// If transformResponse returned nil, it means we don't have a complete message yet
@@ -118,8 +118,11 @@ func (rir *ResponseInterceptingReader) transformResponse() []byte {
 	if len(rir.cleanBuffer) == 0 {
 		log.Printf("parseReponses, no data in cleanBuffer")
 	}
+	log.Printf("transform response, buffer: %s", string(rir.cleanBuffer))
+	var responseBuffer []byte
 	for len(rir.cleanBuffer) > 0 && iterations < maxIterations {
 		iterations++
+		log.Printf("iterations: %d", iterations)
 
 		// Try to find a complete JSON object in the cleanBuffer
 		log.Println("calling utils.ExtractDAPMessage from response handler")
@@ -140,7 +143,6 @@ func (rir *ResponseInterceptingReader) transformResponse() []byte {
 		rir.bufferLock.Lock()
 		rir.cleanBuffer = remainingCompletedObjs
 		if len(remainingIncompleted) > 0 {
-
 			rir.dirtyBuffer = append(rir.dirtyBuffer, remainingIncompleted...)
 		}
 		rir.bufferLock.Unlock()
@@ -159,24 +161,23 @@ func (rir *ResponseInterceptingReader) transformResponse() []byte {
 		}
 
 		switch msg := msg.(type) {
-		case *dap.ContinueResponse, *dap.NextResponse:
-			log.Println("Got continue/next response from DAP, doing nothing")
-			return utils.BuildDAPMessages(jsonObj, remainingCompletedObjs)
 		case *dap.StoppedEvent:
 			log.Println("Got stopped event from DAP")
 			return rir.handleStoppedEvent(msg, jsonObj, remainingCompletedObjs)
 		default:
-			log.Printf("Received response  from DAP, doing nothing. Message type: %T", msg)
-			return utils.BuildDAPMessages(jsonObj, remainingCompletedObjs)
+			// If this is message that we're not interested in, buffer it to return later
+			log.Printf("Received response  from DAP, appending to response buffer. Message type: %T", msg)
+			responseBuffer = append(responseBuffer, utils.BuildDAPMessage(jsonObj)...)
+			// return utils.BuildDAPMessages(jsonObj, remainingCompletedObjs)
 		}
 	}
 
 	// Check if we hit the iteration limit
 	if iterations >= maxIterations {
-		log.Printf("%s Reached maximum iterations (%d) in transformResponse, cleanBuffer length: %d", rir.logPrefix, maxIterations, len(rir.cleanBuffer))
+		log.Printf("Reached maximum iterations (%d) in transformResponse, returning buffered result: %s", maxIterations, string(responseBuffer))
 	}
 
-	return nil // No modifications needed
+	return responseBuffer // No modifications needed
 }
 
 func (rir *ResponseInterceptingReader) handleStoppedEvent(event *dap.StoppedEvent,
@@ -245,25 +246,6 @@ func (rir *ResponseInterceptingReader) handleStoppedEvent(event *dap.StoppedEven
 		fmt.Printf("Python: stopped event: %+v\n", event)
 		log.Println("Python: Create client from existing connection")
 		client := daptest.NewClientFromConn(rir.reader)
-		// client.ThreadsRequest()
-		// threadResp, err := client.GetThreadsResponse()
-		// if err != nil {
-		// 	log.Printf("Python: Can not get threads: %v", err)
-		// }
-		// time.Sleep(3 * time.Second) // Reduced wait time
-		// for _, thread := range threadResp.Body.Threads {
-		// 	fmt.Printf("Python Thread: %+v\n", thread)
-		// 	client.StackTraceRequest(thread.Id, 0, 30)
-		// 	stackTraceResp, err := client.GetStacktraceResponse()
-		// 	if err != nil {
-		// 		log.Printf("Python: Can not get stack trace: %v", err)
-		// 		continue
-		// 	}
-		// 	for _, frame := range stackTraceResp.Body.StackFrames {
-		// 		fmt.Printf("Python: Stack Frame Source name: %+v\n", frame.Source.Name)
-		// 		fmt.Printf("Python: Stack Frame Source path: %+v\n", frame.Source.Path)
-		// 	}
-		// }
 		log.Printf("Python: Getting stack trace for thread %d", event.Body.ThreadId)
 		client.StackTraceRequest(event.Body.ThreadId, 0, 20)
 		resp, err := client.GetStacktraceResponse()
@@ -281,6 +263,7 @@ func (rir *ResponseInterceptingReader) handleStoppedEvent(event *dap.StoppedEven
 				for step := 0; step < maxSteps; step++ {
 					log.Printf("Stepping till workflow code, step %d", step)
 					client.NextRequest(event.Body.ThreadId)
+					time.Sleep(500 * time.Millisecond)
 					nextResponse, buf, err := client.GetNextResponseWithFiltering()
 					if err != nil {
 						log.Printf("Can not step over, step %d, err: %v\n", step, err)

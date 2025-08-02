@@ -80,8 +80,7 @@ async def example_replay_with_breakpoints():
     set_replay_mode(ReplayMode.STANDALONE)
     
     # Set breakpoints at workflow task started events:
-    # breakpoint_events = [3, 9, 15, 21]
-    breakpoint_events = [9,15,21]
+    breakpoint_events =  [3, 9, 15, 21]
     set_breakpoints(breakpoint_events)
     
     print(f"Set breakpoints at events: {breakpoint_events}")

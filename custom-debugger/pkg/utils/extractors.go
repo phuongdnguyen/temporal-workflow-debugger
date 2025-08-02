@@ -18,7 +18,6 @@ func ExtractDAPMessage(data []byte) (jsonObj []byte, remainingCompletedJsonObjs 
 		log.Printf("ExtractDAPMessage, input data is empty")
 		return nil, data, false, nil
 	}
-	fmt.Printf("#########\n ExtractDAPMessage: input data:\n %s \n########\n", string(data))
 	// DAP format: Content-Length: XXX\r\n\r\n{JSON}
 
 	// Safety check: don't process unreasonably large data
@@ -71,10 +70,10 @@ func ExtractDAPMessage(data []byte) (jsonObj []byte, remainingCompletedJsonObjs 
 	remaining := data[jsonEnd:]
 	offset := FirstInvalidDAP(remaining)
 	if offset == -1 {
-		log.Printf("ExtractDAPMessage, the remainings are valid json objects %s\n", string(remaining))
+		// log.Printf("ExtractDAPMessage, the remainings are valid json objects %s\n", string(remaining))
 		return jsonObj, remaining, true, nil
 	}
-	log.Printf("ExtractDAPMessage, remaining incompleted jsonObjs is %s\n", string(remaining[offset:]))
+	// log.Printf("ExtractDAPMessage, remaining incompleted jsonObjs is %s\n", string(remaining[offset:]))
 	return jsonObj, remaining[:offset], true, remaining[offset:]
 }
 
