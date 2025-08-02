@@ -24,16 +24,13 @@ func main() {
 	// Command-line flags
 	// -----------------------------------------------
 	var showHelp bool
-	flag.BoolVar(&showHelp, "help", false, "tdlv is a temporal workflow debugger, "+
-		"supports both DAP and JSON-RPC (alias: -h)")
+	flag.BoolVar(&showHelp, "help", false, "tdlv is a temporal workflow debugger, provide ability to debug temporal workflow from history file from workflows in multiple programming languages (alias: -h)")
 	var proxyPort int
-	flag.IntVar(&proxyPort, "p", 60000, "port for the tdlv proxy (default 60000)")
-
+	flag.IntVar(&proxyPort, "p", 60000, "port for tdlv")
 	var lang string
-	flag.StringVar(&lang, "l", "en", "language to use")
+	flag.StringVar(&lang, "lang", "go", "language to use for the workflow, available options: [go, python, js]")
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "Tdlv is a temporal workflow debugger, "+
-			"supports both DAP and JSON-RPC  (ports 2345 / 60000)\n\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "Tdlv is a temporal workflow debugger, (ports 2345 / 60000)\n\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [options]\n\n", os.Args[0])
 		flag.PrintDefaults()
 	}
@@ -47,20 +44,20 @@ func main() {
 
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	debuggerStopCh := make(chan struct{}, 1)
-	switch utils.Lang(lang) {
-	case utils.GoDelve:
+	switch lang {
+	case "go":
 		startDelve(debuggerStopCh)
-	case utils.Python:
+	case "python":
 		startDebugPy(debuggerStopCh)
 	default:
-		log.Fatalf("Unsupported language: %s", lang)
+		log.Fatalf("Unsupported lang: %s", lang)
 	}
 
 	addr := fmt.Sprintf(":%d", proxyPort)
-	log.Printf("Starting delve proxy on %s (supports both DAP and JSON-RPC)", addr)
+	log.Printf("Starting tdlv on %s", addr)
 	proxyListener, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Fatal(fmt.Errorf("could not start proxy listener: %w", err))
+		log.Fatal(fmt.Errorf("could not start tdlv: %w", err))
 	}
 	defer proxyListener.Close()
 
@@ -100,11 +97,6 @@ func startDelve(stopCh <-chan struct{}) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer func() {
-		if err := l.Close(); err != nil {
-			log.Fatal(fmt.Errorf("error closing listener: %w", err))
-		}
-	}()
 	workingDir, err := os.Getwd()
 	if err != nil {
 		log.Fatal(fmt.Errorf("error getting working directory: %w", err))
@@ -112,13 +104,13 @@ func startDelve(stopCh <-chan struct{}) {
 	// Setup debugger config for headless mode
 	// Foreground: true enables headless mode with automatic protocol detection
 	// The server will automatically detect DAP (Content-Length header) vs JSON-RPC
-	// TODO: disable to test multi-lange, need to detect lang and decide if a build is needed
 	debuggerConfig := debugger.Config{
-		WorkingDir:     workingDir,
-		Backend:        "default",
-		Foreground:     false,
-		CheckGoVersion: true,
-		DisableASLR:    false,
+		WorkingDir:           workingDir,
+		Backend:              "default",
+		Foreground:           false,
+		CheckGoVersion:       true,
+		DebugInfoDirectories: []string{},
+		DisableASLR:          false,
 	}
 	bin, ok := utils.BuildBinary([]string{}, false)
 	if !ok {
@@ -144,10 +136,10 @@ func startDelve(stopCh <-chan struct{}) {
 	// Start Delve server in background
 	go func() {
 		if err := server.Run(); err != nil {
-			log.Fatalf("server.Run failed: %v", err)
+			log.Fatalf("run delve server failed: %v", err)
 		}
 	}()
-	log.Println("Delve headless server started on :2345 (supports both JSON-RPC and DAP, single-client mode)")
+	log.Println("Delve headless server started on :2345 (supports both JSON-RPC and DAP)")
 	go func() {
 		select {
 		case <-stopCh:
@@ -155,6 +147,9 @@ func startDelve(stopCh <-chan struct{}) {
 				log.Printf("Error stopping Delve server: %v", err)
 			}
 			log.Println("Delve headless server stopped")
+			if err := l.Close(); err != nil {
+				log.Fatal(fmt.Errorf("error closing listener: %w", err))
+			}
 		}
 	}()
 }

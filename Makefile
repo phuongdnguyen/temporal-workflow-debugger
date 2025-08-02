@@ -1,17 +1,14 @@
-simple:
-	export LANGUAGE=go && cd custom-debugger && go clean && go build -o ../tdlv.build && cd ../example/simple-workflow && ../../tdlv.build
+go-simple:
+	cd custom-debugger && go clean && go build -o ../tdlv.build && cd ../example/go//simple-workflow && ../../tdlv.build --lang=go
 
-structured-ide-integrated:
-	cd custom-debugger && go clean && go build -o ../tdlv.build && cd ../example/structured-workflow/replay-debug-ide-integrated && ../../../tdlv.build
+go-structured-ide-integrated:
+	cd custom-debugger && go clean && go build -o ../tdlv.build && cd ../example/go/structured-workflow/replay-debug-ide-integrated && ../../../../tdlv.build --lang=go
 
-structured-standalone:
-	cd custom-debugger && go clean && go build -o ../tdlv.build && cd ../example/structured-workflow/replay-debug-standalone && ../../../tdlv.build
-
-debugpy:
-	cd example/python && python -m debugpy --listen 2345 --wait-for-client standalone_replay.py
+go-structured-standalone:
+	cd custom-debugger && go clean && go build -o ../tdlv.build && cd ../example/go/structured-workflow/replay-debug-standalone && ../../../../tdlv.build --lang=go
 
 python:
-	export LANGUAGE=python && cd custom-debugger && go clean && go build -o ../tdlv.build && cd .. && ./tdlv.build
+	cd custom-debugger && go clean && go build -o ../tdlv.build && cd .. && ./tdlv.build --lang=python
 
 build:
 	cd custom-debugger && go clean && go build -o ../tdlv.build

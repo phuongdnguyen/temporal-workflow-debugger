@@ -178,120 +178,68 @@ func (rir *ResponseInterceptingReader) handleStoppedEvent(event *dap.StoppedEven
 		rir.log.Printf("Ignoring stopped event with reason %s", event.Body.Reason)
 		return extractors.BuildDAPMessages(jsonObj, remaining)
 	}
-	lang := utils.GetLang()
-	switch lang {
-	case utils.GoDelve:
-		threads, err := rir.delve.ListThreads()
-		if err != nil {
-			rir.log.Printf("Can not list threads: %v", err)
-			return extractors.BuildDAPMessages(jsonObj, remaining)
-		}
-
-		for _, thread := range threads {
-			if thread.GoroutineID == int64(event.Body.ThreadId) {
-				if thread.Function.Name() == "replayer_adapter.raiseSentinelBreakpoint" {
-					rir.log.Printf("Found thread %d with goroutine id %d is adapter code", thread.ID, thread.GoroutineID)
-					// 	Step until user code
-					maxSteps := 50
-					for step := 0; step < maxSteps; step++ {
-						rir.log.Printf("Stepping till workflow code, step %d", step)
-						state, err := rir.delve.Next()
-						if err != nil {
-							rir.log.Printf("Can not step over, step %d, err: %v\n", step, err)
-							continue
-						}
-						if state == nil || state.Running {
-							rir.log.Printf("%s AUTO-STEP: Received nil or running state, continuing", rir.logPrefix)
-							time.Sleep(200 * time.Millisecond) // Reduced wait time
-							continue
-						}
-						for _, sThread := range state.Threads {
-							// Try to get function name from breakpoint info
-							currentFile := sThread.File
-							// Check if we're still in adapter code
-							isInAdapter := locators.IsInAdapterCodeByPath(currentFile)
-							if !isInAdapter {
-								rir.log.Printf("Reached workflow code, file %s, line %d, function %s", sThread.File, sThread.Line, sThread.Function.Name())
-								// 	TODO: UX Step
-								rir.log.Printf("Changing thread id from %d to %d", event.Body.ThreadId, sThread.GoroutineID)
-								event.Body.ThreadId = int(sThread.GoroutineID)
-								finalResponseBytes, err := json.Marshal(event)
-								if err != nil {
-									rir.log.Printf("Can not marshal event: %v", err)
-									return extractors.BuildDAPMessages(jsonObj, remaining)
-								}
-								return extractors.BuildDAPMessages(finalResponseBytes, remaining)
-							}
-						}
-					}
-				}
-			}
-		}
-		return extractors.BuildDAPMessages(jsonObj, remaining)
-	case utils.Python, utils.GoDAP:
-		fmt.Printf("Stopped event: %+v", event)
-		rir.log.Println("Create client from existing connection")
-		client := dap_client.NewClientFromConn(rir.reader)
-		rir.log.Printf("Getting stack trace for thread %d", event.Body.ThreadId)
-		client.StackTraceRequest(event.Body.ThreadId, 0, 20)
-		resp, err := client.GetStacktraceResponse()
-		if err != nil {
-			rir.log.Printf("Can not get stack response: %v", err)
-			return extractors.BuildDAPMessages(jsonObj, remaining)
-		}
-		// var totalBuf []byte
-		for _, frame := range resp.Body.StackFrames {
-			rir.log.Printf("Checking Frame with source: %+v", *frame.Source)
-			if locators.IsInAdapterCodeByPath(frame.Source.Path) {
-				rir.log.Printf("Frame with path %s is in adapter code, stepping out", frame.Source.Path)
-				// 	Step until user code
-				maxSteps := 30
-				for step := 0; step < maxSteps; step++ {
-					rir.log.Printf("Stepping until workflow code, step %d", step)
-					client.NextRequest(event.Body.ThreadId)
-					// Wait for debugger state to settle down
-					time.Sleep(500 * time.Millisecond)
-					nextResponse, _, err := client.GetNextResponseWithFiltering()
-					if err != nil {
-						rir.log.Printf("Can not step over, step %d, err: %v", step, err)
-						continue
-					}
-					if !nextResponse.Success {
-						rir.log.Printf("Can not step over, step %d, success: %v", step, nextResponse.Success)
-						break
-					}
-					rir.log.Println("Appending messages batch to buffer")
-					// totalBuf = append(totalBuf, buf...)
-					rir.log.Printf("Getting stacktrace for thread id: %d", event.Body.ThreadId)
-					client.StackTraceRequest(event.Body.ThreadId, 0, 20)
-					getStacktraceResp, _, err := client.GetStacktraceResponseWithFiltering()
-					if err != nil {
-						rir.log.Printf("Can not get stack response: %v", err)
-						break
-					}
-					if !getStacktraceResp.Success {
-						rir.log.Printf("Can not get stack trace, step %d, success: %v", step, nextResponse.Success)
-						break
-					}
-					rir.log.Println("Appending messages batch to buffer")
-					// totalBuf = append(totalBuf, buf...)
-					frame := getStacktraceResp.Body.StackFrames[0]
-					rir.log.Printf("Checking frame file: %s, line: %d", frame.Source.Path, frame.Line)
-					if !locators.IsInAdapterCodeByPath(frame.Source.Path) {
-						println("WORKFLOW FRAME")
-						rir.log.Printf("Found user code frame file: %s, line: %d", frame.Source.Path, frame.Line)
-						b, err := json.Marshal(event)
-						if err != nil {
-							rir.log.Printf("Can not marshal event: %v", err)
-							return extractors.BuildDAPMessages(jsonObj, remaining)
-						}
-						return extractors.BuildDAPMessages(b, remaining)
-					}
-				}
-			}
-		}
-
+	fmt.Printf("Stopped event: %+v", event)
+	rir.log.Println("Create client from existing connection")
+	client := dap_client.NewClientFromConn(rir.reader)
+	rir.log.Printf("Getting stack trace for thread %d", event.Body.ThreadId)
+	client.StackTraceRequest(event.Body.ThreadId, 0, 20)
+	resp, err := client.GetStacktraceResponse()
+	if err != nil {
+		rir.log.Printf("Can not get stack response: %v", err)
 		return extractors.BuildDAPMessages(jsonObj, remaining)
 	}
+	// var totalBuf []byte
+	for _, frame := range resp.Body.StackFrames {
+		rir.log.Printf("Checking Frame with source: %+v", *frame.Source)
+		if locators.IsInAdapterCodeByPath(frame.Source.Path) {
+			rir.log.Printf("Frame with path %s is in adapter code, stepping out", frame.Source.Path)
+			// 	Step until user code
+			maxSteps := 30
+			for step := 0; step < maxSteps; step++ {
+				rir.log.Printf("Stepping until workflow code, step %d", step)
+				client.NextRequest(event.Body.ThreadId)
+				// Wait for debugger state to settle down
+				time.Sleep(500 * time.Millisecond)
+				nextResponse, _, err := client.GetNextResponseWithFiltering()
+				if err != nil {
+					rir.log.Printf("Can not step over, step %d, err: %v", step, err)
+					continue
+				}
+				if !nextResponse.Success {
+					rir.log.Printf("Can not step over, step %d, success: %v", step, nextResponse.Success)
+					break
+				}
+				rir.log.Println("Appending messages batch to buffer")
+				// totalBuf = append(totalBuf, buf...)
+				rir.log.Printf("Getting stacktrace for thread id: %d", event.Body.ThreadId)
+				client.StackTraceRequest(event.Body.ThreadId, 0, 20)
+				getStacktraceResp, _, err := client.GetStacktraceResponseWithFiltering()
+				if err != nil {
+					rir.log.Printf("Can not get stack response: %v", err)
+					break
+				}
+				if !getStacktraceResp.Success {
+					rir.log.Printf("Can not get stack trace, step %d, success: %v", step, nextResponse.Success)
+					break
+				}
+				rir.log.Println("Appending messages batch to buffer")
+				// totalBuf = append(totalBuf, buf...)
+				frame := getStacktraceResp.Body.StackFrames[0]
+				rir.log.Printf("Checking frame file: %s, line: %d", frame.Source.Path, frame.Line)
+				if !locators.IsInAdapterCodeByPath(frame.Source.Path) {
+					println("WORKFLOW FRAME")
+					rir.log.Printf("Found user code frame file: %s, line: %d", frame.Source.Path, frame.Line)
+					b, err := json.Marshal(event)
+					if err != nil {
+						rir.log.Printf("Can not marshal event: %v", err)
+						return extractors.BuildDAPMessages(jsonObj, remaining)
+					}
+					return extractors.BuildDAPMessages(b, remaining)
+				}
+			}
+		}
+	}
+
+	return extractors.BuildDAPMessages(jsonObj, remaining)
 	return extractors.BuildDAPMessages(jsonObj, remaining)
 }
