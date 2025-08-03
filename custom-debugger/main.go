@@ -50,7 +50,7 @@ func main() {
 	case "python":
 		startDebugPy(debuggerStopCh)
 	default:
-		log.Fatalf("Unsupported lang: %s", lang)
+		log.Printf("Running with lang, expect DAP Debugger to be started on port 2345: %s", lang)
 	}
 
 	addr := fmt.Sprintf(":%d", proxyPort)
