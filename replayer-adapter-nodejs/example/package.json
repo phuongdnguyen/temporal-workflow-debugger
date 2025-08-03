@@ -1,0 +1,18 @@
+{
+  "name": "replayer-adapter-nodejs-example",
+  "version": "0.1.0",
+  "description": "Examples for the Node.js Replayer Adapter",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "start:standalone": "node dist/basic-usage.js",
+    "start:ide": "WFDBG_HISTORY_PORT=54578 node dist/basic-usage.js"
+  },
+  "devDependencies": {
+    "typescript": "^4.9.0",
+    "@types/node": "^18.0.0"
+  },
+  "dependencies": {
+    "@temporal/replayer-adapter-nodejs": "file:.."
+  }
+} 
