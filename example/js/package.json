@@ -1,0 +1,28 @@
+{
+  "name": "temporal-js-example",
+  "version": "1.0.0",
+  "description": "Temporal TypeScript workflow example",
+  "main": "main.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node main.ts",
+    "worker": "ts-node main.ts worker",
+    "start": "ts-node main.ts start",
+    "replay": "ts-node main.ts replay",
+    "debug:replay": "node --inspect-brk=127.0.0.1:9229 -r ts-node/register ./main.ts replay"
+  },
+  "dependencies": {
+    "@temporalio/client": "^1.12.0",
+    "@temporalio/worker": "^1.12.0",
+    "@temporalio/workflow": "^1.12.0",
+    "@temporalio/activity": "^1.12.0",
+    "@temporalio/common": "^1.12.0",
+    "@temporalio/proto": "^1.12.0"
+  },
+  "devDependencies": {
+    "typescript": "^4.9.0",
+    "@types/node": "^18.0.0",
+    "ts-node": "^10.9.0",
+    "@temporal/replayer-adapter-nodejs": "file:../../replayer-adapter-nodejs"
+  }
+} 
