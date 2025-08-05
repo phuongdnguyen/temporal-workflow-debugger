@@ -1,3 +1,4 @@
+.DS_Store
 .idea/
 __debug_bin**
 **/__tdlv_debug_bin*
@@ -214,3 +215,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+
+#Nodejs
+
+node_modules
+build
+npm-debug.log
+.env
+js-debug

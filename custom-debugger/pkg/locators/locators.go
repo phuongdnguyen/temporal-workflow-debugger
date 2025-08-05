@@ -34,7 +34,9 @@ func IsInAdapterCodeByPath(filePath string) bool {
 		strings.Contains(filePath, "/runtime/") ||
 		strings.Contains(filePath, "/reflect/") ||
 		strings.Contains(filePath, "replayer-adapter-python/") ||
-		strings.Contains(filePath, "replayer.py")
+		strings.Contains(filePath, "replayer.py") ||
+		strings.Contains(filePath, "replayer-adapter-nodejs/") ||
+		strings.Contains(filePath, "replayer.ts")
 }
 
 // Pwd returns the current working directory
@@ -81,6 +83,7 @@ func IsUserCodeFile(filePath, workingDir string) bool {
 	if strings.Contains(filePath, "replayer-adapter/") ||
 		strings.Contains(filePath, "custom-debugger/") ||
 		strings.Contains(filePath, "replayer-adapter-python/") ||
+		strings.Contains(filePath, "replayer-adapter-nodejs/") ||
 		strings.Contains(filePath, "vendor/") ||
 		strings.Contains(filePath, ".git/") {
 		return false

@@ -1,0 +1,36 @@
+{
+  "name": "@temporal/replayer-adapter-nodejs",
+  "version": "0.1.0",
+  "description": "Replayer adapter and interceptors for Temporal Node.js workflows",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "temporal",
+    "workflow",
+    "replayer",
+    "debugger",
+    "interceptor"
+  ],
+  "author": "Temporal Technologies",
+  "license": "MIT",
+  "peerDependencies": {
+    "@temporalio/worker": "^1.12.0",
+    "@temporalio/workflow": "^1.12.0",
+    "@temporalio/common": "^1.12.0",
+    "@temporalio/proto": "^1.12.0"
+  },
+  "devDependencies": {
+    "typescript": "^4.9.0",
+    "@types/node": "^18.0.0"
+  },
+  "files": [
+    "dist/**/*",
+    "README.md"
+  ]
+} 

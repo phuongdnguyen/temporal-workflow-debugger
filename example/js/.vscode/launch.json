@@ -1,0 +1,22 @@
+{
+  "version": "0.2.0", // VS Code launch configuration schema version
+  "configurations": [
+    {
+      "name": "Debug with ts-node",
+      "type": "pwa-node",
+      "request": "launch",
+      "program": "${workspaceFolder}/main.ts",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["ts-node"],
+      "console": "integratedTerminal",
+      "args": ["replay"],
+      "outputCapture": "console",
+      "stopOnEntry": false,
+      "trace": true,
+      "timeout": 5000,
+      "env": {
+        "TS_NODE_PROJECT": "${workspaceFolder}/tsconfig.json"
+      }
+    }
+  ]
+}

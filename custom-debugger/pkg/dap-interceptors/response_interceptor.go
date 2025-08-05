@@ -241,5 +241,4 @@ func (rir *ResponseInterceptingReader) handleStoppedEvent(event *dap.StoppedEven
 	}
 
 	return extractors.BuildDAPMessages(jsonObj, remaining)
-	return extractors.BuildDAPMessages(jsonObj, remaining)
 }

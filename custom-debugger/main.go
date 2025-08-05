@@ -34,6 +34,8 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [options]\n\n", os.Args[0])
 		flag.PrintDefaults()
 	}
+	var install bool
+	flag.BoolVar(&install, "install", false, "install required language debugger if missing")
 
 	flag.Parse()
 
@@ -46,11 +48,13 @@ func main() {
 	debuggerStopCh := make(chan struct{}, 1)
 	switch lang {
 	case "go":
-		startDelve(debuggerStopCh)
+		startDelve(debuggerStopCh, install)
 	case "python":
-		startDebugPy(debuggerStopCh)
+		startDebugPy(debuggerStopCh, install)
+	case "js":
+		startJsDebug(debuggerStopCh, install)
 	default:
-		log.Fatalf("Unsupported lang: %s", lang)
+		log.Printf("Running with lang %s, expect a language debugger to be started on port 2345", lang)
 	}
 
 	addr := fmt.Sprintf(":%d", proxyPort)
@@ -91,7 +95,10 @@ func main() {
 	}
 }
 
-func startDelve(stopCh <-chan struct{}) {
+func startDelve(stopCh <-chan struct{}, install bool) {
+	if install {
+		// Install delve
+	}
 	// Listen on TCP port for Delve server
 	l, err := net.Listen("tcp", ":2345")
 	if err != nil {
@@ -154,28 +161,50 @@ func startDelve(stopCh <-chan struct{}) {
 	}()
 }
 
-func startDebugPy(debuggerStopCh <-chan struct{}) {
+func startDebugPy(stopCh <-chan struct{}, install bool) {
+	if install {
+		// Install debugpy
+	}
 	ctx := context.Background()
 	cmd := exec.CommandContext(ctx, "python", "-m", "debugpy", "--listen", "2345", "--wait-for-client", "standalone_replay.py")
 	cmd.Dir = "example/python" // Set working directory to the Python example
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	go func() {
-
 		log.Println("Starting Python debugpy server on :2345")
 		if err := cmd.Run(); err != nil {
 			log.Printf("Error running Python debugpy: %v", err)
 		}
 	}()
 	go func() {
-		select {
-		case <-debuggerStopCh:
-			if err := cmd.Process.Kill(); err != nil {
-				log.Printf("Error killing Python debugpy: %v", err)
-			}
-			log.Println("Python debugger stopped")
+		<-stopCh
+		if err := cmd.Process.Kill(); err != nil {
+			log.Printf("Error killing Python debugpy: %v", err)
+		}
+		log.Println("Python debugger stopped")
+	}()
+}
+
+func startJsDebug(stopCh <-chan struct{}, install bool) {
+	if install {
+		// Install js-debug
+	}
+	ctx := context.Background()
+	cmd := exec.CommandContext(ctx, "node", "dapDebugServer.js", "2345", "127.0.0.1")
+	go func() {
+		log.Println("Starting JS debug on :2345")
+		if err := cmd.Run(); err != nil {
+			log.Printf("Error running JS Debug: %v", err)
 		}
 	}()
+	go func() {
+		<-stopCh
+		if err := cmd.Process.Kill(); err != nil {
+			log.Printf("Error killing JS debug: %v", err)
+		}
+		log.Println("JS debug stopped")
+	}()
+
 }
 
 func init() {
