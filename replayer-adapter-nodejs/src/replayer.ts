@@ -2,47 +2,27 @@ import * as fs from 'fs/promises';
 import { Worker } from '@temporalio/worker';
 import { historyFromJSON } from '@temporalio/common/lib/proto-utils';
 import { temporal } from '@temporalio/proto';
-import { workflowInfo } from '@temporalio/workflow';
-import { ReplayMode, ReplayOptions } from './types';
+import { getLNSE, ReplayMode, ReplayOptions, setDebuggerAddr, setLNSE, getBreakpoints, getReplayMode, getDebuggerAddr } from './types';
 import { httpGet, httpPost } from './http-client';
 import { activityInterceptors } from './activity-interceptors';
 
-// Global state
-let mode: ReplayMode = ReplayMode.STANDALONE;
-// TODO: make this updatable, currently hard-coded to test other things
-let breakpoints: Set<number> = new Set([9,15]);
-let lastNotifiedStartEvent: number = -1;
-let debuggerAddr: string = '';
 
-/**
- * Set the replay mode (standalone or IDE)
- */
-export function setReplayMode(m: ReplayMode): void {
-  mode = m;
-}
-
-/**
- * Set breakpoints for standalone mode
- */
-export function setBreakpoints(eventIds: number[]): void {
-  breakpoints = new Set(eventIds);
-}
 
 /**
  * Check if the given event ID is a breakpoint
  */
 export function isBreakpoint(eventId: number): boolean {
-  switch (mode) {
+  switch (getReplayMode()) {
     case ReplayMode.STANDALONE:
-      console.log(`Standalone checking breakpoints: ${Array.from(breakpoints)}, eventId: ${eventId}`);
-      if (breakpoints.has(eventId)) {
+      console.log(`Standalone checking breakpoints: ${Array.from(getBreakpoints())}, eventId: ${eventId}`);
+      if (getBreakpoints().has(eventId)) {
         console.log(`Hit breakpoint at eventId: ${eventId}`);
         return true;
       }
       return false;
       
     case ReplayMode.IDE:
-      if (!debuggerAddr) {
+      if (!getDebuggerAddr()) {
         return false;
       }
       
@@ -63,17 +43,17 @@ export function isBreakpoint(eventId: number): boolean {
  * Send highlight request to IDE for current event
  */
 export function highlightCurrentEventInIDE(eventId: number): void {
-  if (!debuggerAddr) {
+  if (!getDebuggerAddr()) {
     console.warn('debuggerAddr is empty, cannot send highlight request');
     return;
   }
   
-  console.log(`Sending highlight request for event ${eventId} to ${debuggerAddr}/current-event`);
+  console.log(`Sending highlight request for event ${eventId} to ${getDebuggerAddr()}/current-event`);
   
   const payload = JSON.stringify({ eventId });
   
   try {
-    sendHighlightRequest(debuggerAddr, payload);
+    sendHighlightRequest(getDebuggerAddr(), payload);
     console.log(`✓ Successfully highlighted event ${eventId} in debugger UI`);
   } catch (error) {
     console.warn(`Failed to send highlight request: ${error}`);
@@ -96,15 +76,15 @@ export function raiseSentinelBreakpoint(caller: string, info?: any): void {
   }
   
   if (eventId !== undefined) {
-    if (eventId <= lastNotifiedStartEvent) {
+    if (eventId <= getLNSE()) {
       return;
     }
-    lastNotifiedStartEvent = eventId;
+    setLNSE(eventId);
     console.log(`runner notified at ${caller}, eventId: ${eventId}`);
     
     if (isBreakpoint(eventId)) {
       console.log(`Pause at event ${eventId}`);
-      if (mode === ReplayMode.IDE) {
+      if (getReplayMode() === ReplayMode.IDE) {
         highlightCurrentEventInIDE(eventId);
       }
         debugger;
@@ -120,13 +100,13 @@ export async function getHistoryFromIDE(): Promise<temporal.api.history.v1.IHist
   const runnerAddr = `http://127.0.0.1:${port}`;
   
   try {
-    const response = await httpGet(`${runnerAddr}/history`);
+    const response = await httpGet(`${getDebuggerAddr()}/history`);
     if (response.statusCode !== 200) {
       throw new Error(`HTTP error! status: ${response.statusCode}`);
     }
     
     const historyData = JSON.parse(response.body);
-    debuggerAddr = runnerAddr;
+    setDebuggerAddr(runnerAddr);
     return historyData;
   } catch (error) {
     console.error(`Could not get history from IDE: ${error}`);
@@ -138,9 +118,9 @@ export async function getHistoryFromIDE(): Promise<temporal.api.history.v1.IHist
  * Main replay function that handles both standalone and IDE modes
  */
 export async function replay(opts: ReplayOptions, workflow: any): Promise<void> {
-  console.log(`Replaying in mode ${mode}`);
+  console.log(`Replaying in mode ${getReplayMode()}`);
   
-  if (mode === ReplayMode.STANDALONE) {
+  if (getReplayMode() === ReplayMode.STANDALONE) {
     console.log('Replaying in standalone mode');
     return replayWithJsonFile(opts.workerReplayOptions || {}, workflow, opts.historyFilePath!);
   } else {
@@ -199,7 +179,7 @@ function checkBreakpointWithIDE(eventId: number): boolean {
   try {
     // This should be an async call in practice, but for simplicity keeping it sync
     // In a production implementation, you'd want to cache breakpoints or make this async
-    const response = httpGet(`${debuggerAddr}/breakpoints`, 2000);
+    const response = httpGet(`${getDebuggerAddr()}/breakpoints`, 2000);
     response.then((res) => {
       if (res.statusCode === 200) {
         const payload = JSON.parse(res.body);

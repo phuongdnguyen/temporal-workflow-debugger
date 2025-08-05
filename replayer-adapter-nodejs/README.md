@@ -93,9 +93,12 @@ await replay(opts, YourWorkflowClass);
 
 ### Using Interceptors Directly
 
+The interceptors are automatically included when using the `replay` function, but you can also use them directly with a Temporal Worker:
+
 ```typescript
 import { Worker } from '@temporalio/worker';
-import { workflowInterceptors, activityInterceptors } from '@temporal/replayer-adapter-nodejs';
+import { interceptors as workflowInterceptors } from '@temporal/replayer-adapter-nodejs/dist/workflow-interceptors';
+import { activityInterceptors } from '@temporal/replayer-adapter-nodejs/dist/activity-interceptors';
 
 const worker = Worker.create({
   taskQueue: 'your-task-queue',
@@ -143,10 +146,10 @@ Replay workflow with history from JSON file.
 ### Interceptors
 
 #### `workflowInterceptors`
-Workflow interceptor factory for debugging support.
+Workflow interceptor factory for debugging support. Automatically injected when using the `replay` function.
 
 #### `activityInterceptors`
-Activity interceptor factory for debugging support.
+Activity interceptor factory for debugging support. Automatically injected when using the `replay` function.
 
 ## Environment Variables
 
@@ -157,7 +160,48 @@ Activity interceptor factory for debugging support.
 See the `example/` directory for complete examples of:
 - Standalone workflow replay with breakpoints
 - IDE-integrated workflow debugging
-- Custom interceptor usage
+
+### Basic Usage Example
+
+```typescript
+import {
+  ReplayMode,
+  ReplayOptions,
+  setReplayMode,
+  setBreakpoints,
+  replay
+} from '@temporal/replayer-adapter-nodejs';
+
+// Example workflow
+async function greetingWorkflow(name: string): Promise<string> {
+  return `Hello, ${name}!`;
+}
+
+async function main() {
+  // Standalone mode
+  setReplayMode(ReplayMode.STANDALONE);
+  setBreakpoints([1, 5, 10]);
+  
+  const standaloneOpts: ReplayOptions = {
+    historyFilePath: './example-history.json',
+    workerReplayOptions: {
+      workflowsPath: require.resolve('./workflows'),
+    }
+  };
+  
+  await replay(standaloneOpts, greetingWorkflow);
+  
+  // IDE mode
+  setReplayMode(ReplayMode.IDE);
+  const ideOpts: ReplayOptions = {
+    workerReplayOptions: {
+      workflowsPath: require.resolve('./workflows'),
+    }
+  };
+  
+  await replay(ideOpts, greetingWorkflow);
+}
+```
 
 ## Architecture
 
@@ -168,11 +212,40 @@ This replayer adapter follows the same architecture as the Go and Python impleme
 3. **HTTP Client**: Communicate with IDE debugger for breakpoint status and highlighting
 4. **History Loading**: Support loading from both JSON files and HTTP endpoints
 
+### Key Components
+
+- **`replayer.ts`**: Main replay logic and breakpoint handling
+- **`workflow-interceptors.ts`**: Workflow interceptors for debugging support
+- **`activity-interceptors.ts`**: Activity interceptors for debugging support
+- **`types.ts`**: Type definitions and state management
+- **`http-client.ts`**: HTTP communication with IDE debugger
+
 ## Compatibility
 
 - Node.js 16.x or higher
-- Temporal TypeScript SDK 1.15.0 or higher
+- Temporal TypeScript SDK 1.12.0 or higher
 - TypeScript 4.9.0 or higher
+
+## Development
+
+### Building
+
+```bash
+npm run build
+```
+
+### Development Mode
+
+```bash
+npm run dev
+```
+
+### Clean Build
+
+```bash
+npm run clean
+npm run build
+```
 
 ## Contributing
 

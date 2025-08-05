@@ -8,7 +8,6 @@ import {
   completeWorkflowSignal,
   getCurrentStatusQuery,
 } from './workflow';
-import * as fs from 'fs/promises';
 import { ReplayMode, setReplayMode, replay, setBreakpoints } from '@temporal/replayer-adapter-nodejs';
 
 // ====================
@@ -87,7 +86,7 @@ async function replayFromFile(historyPath: string = './history.json'): Promise<v
   try {
     // Configure adapter for standalone replay
     setReplayMode(ReplayMode.STANDALONE);
-    // setBreakpoints([3, 9])
+    setBreakpoints([9, 15])
     const opts = {
       historyFilePath: historyPath,
       workerReplayOptions: {
@@ -100,8 +99,9 @@ async function replayFromFile(historyPath: string = './history.json'): Promise<v
           ]
         }
       },
+      name: 'hehe'
     } as any; // adapter types
-
+  
     await replay(opts, exampleWorkflow);
 
     console.log('Replay completed successfully');

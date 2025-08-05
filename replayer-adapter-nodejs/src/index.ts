@@ -8,25 +8,15 @@
  * @version 0.1.0
  */
 
-// Export types
-export { ReplayMode, ReplayOptions } from './types';
-
 // Export main functions
 export {
-  setReplayMode,
-  setBreakpoints,
-  isBreakpoint,
-  highlightCurrentEventInIDE,
-  raiseSentinelBreakpoint,
-  getHistoryFromIDE,
   replay,
-  replayWithHistory,
-  replayWithJsonFile,
 } from './replayer';
 
-// Export interceptors
-export { interceptors as workflowInterceptors } from './workflow-interceptors';
-export { activityInterceptors } from './activity-interceptors';
-
-// Export HTTP client utilities
-export { httpGet, httpPost, HttpResponse } from './http-client'; 
+// Export config setters
+export {
+  setBreakpoints,
+  setReplayMode,
+  ReplayMode,
+  ReplayOptions
+} from './types';
