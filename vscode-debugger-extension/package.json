@@ -1,0 +1,121 @@
+{
+  "name": "temporalio",
+  "displayName": "Temporal.io",
+  "version": "0.1.2",
+  "description": "Debug workflows by their ID or history file. Set breakpoints in code or on history events.",
+  "categories": [
+    "Debuggers",
+    "Visualization"
+  ],
+  "keywords": [
+    "temporal",
+    "workflow",
+    "debugger",
+    "vscode"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/temporalio/vscode-debugger-extension"
+  },
+  "license": "MIT",
+  "publisher": "temporal-technologies",
+  "main": "./extension/dist/extension.js",
+  "scripts": {
+    "build": "concurrently \"npm run build.extension\" \"npm run build.webview\"",
+    "build.extension": "tsc --build extension",
+    "build.extension.watch": "tsc --build --watch extension",
+    "build.watch": "concurrently \"npm run build.extension.watch\" \"npm run build.webview.watch\"",
+    "build.webview": "rollup -c",
+    "build.webview.watch": "rollup -c -w --watch.onEnd \"node scripts/reload-webview.mjs\"",
+    "format": "prettier --write .",
+    "lint": "eslint src --ext .ts --no-error-on-unmatched-pattern && prettier --end-of-line auto --check .",
+    "publish": "vsce publish",
+    "test": "vitest"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "temporal.debugger-extension.open-panel",
+        "title": "Temporal: Open Panel"
+      }
+    ],
+    "configuration": {
+      "title": "Temporal debugger",
+      "properties": {
+        "temporal.replayerEntrypoint": {
+          "type": "string",
+          "default": "src/debug-replayer.ts",
+          "description": "Specifies which file will be used to start a replayer process."
+        },
+        "temporal.debugLanguage": {
+          "type": "string",
+          "enum": [
+            "typescript",
+            "go",
+            "java",
+            "python"
+          ],
+          "default": "typescript",
+          "description": "Specifies the programming language to use for debugging workflows.",
+          "enumDescriptions": [
+            "TypeScript/JavaScript with Node.js runtime",
+            "Go with delve debugger",
+            "Java with built-in debugger",
+            "Python with built-in debugger"
+          ]
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "@temporalio/client": "^1.10.1",
+    "@temporalio/common": "^1.10.1",
+    "@temporalio/proto": "^1.10.1",
+    "@vscode/webview-ui-toolkit": "^1.4.0",
+    "express": "^4.19.2",
+    "ts-node": "^10.9.2"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.8",
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-typescript": "^11.1.6",
+    "@tsconfig/node16": "^16.1.3",
+    "@tsconfig/svelte": "^5.0.4",
+    "@types/chai": "^4.3.16",
+    "@types/express": "^4.17.21",
+    "@types/glob": "^8.1.0",
+    "@types/humanize-duration": "^3.27.4",
+    "@types/mocha": "^10.0.6",
+    "@types/node": "^20.12.12",
+    "@types/vscode": "^1.89.0",
+    "@typescript-eslint/eslint-plugin": "^7.11.0",
+    "@typescript-eslint/parser": "^7.11.0",
+    "@vitest/coverage-v8": "^1.6.0",
+    "@vscode/test-electron": "^2.3.10",
+    "@vscode/vsce": "^2.26.1",
+    "concurrently": "^8.2.2",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-deprecation": "^2.0.0",
+    "eslint-plugin-tsdoc": "^0.2.17",
+    "humanize-duration": "^3.32.1",
+    "nodemon": "^3.1.1",
+    "prettier": "3.2.5",
+    "release": "^6.0.1",
+    "rollup": "^4.18.0",
+    "rollup-plugin-css-only": "^4.5.2",
+    "rollup-plugin-svelte": "^7.2.0",
+    "svelte": "^4.2.17",
+    "svelte-check": "^3.7.1",
+    "svelte-preprocess": "^5.1.4",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.4.5",
+    "vite": "^5.2.12",
+    "vitest": "^1.6.0"
+  },
+  "engines": {
+    "vscode": "^1.77.3"
+  },
+  "icon": "logo.png"
+}

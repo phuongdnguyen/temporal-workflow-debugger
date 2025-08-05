@@ -1,0 +1,11 @@
+.github
+.gitignore
+.prettierignore
+.vscode
+extension/src
+extension/tsconfig.json
+rollup.config.mjs
+samples
+scripts
+webview/src
+webview/tsconfig.json
