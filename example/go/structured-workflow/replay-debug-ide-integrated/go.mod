@@ -2,14 +2,14 @@ module replay_debug_ide_integrated
 
 go 1.23.11
 
-replace replayer_adapter => /Users/duyphuongnguyen/GolandProjects/temporal-goland-plugin/replayer-adapter
+replace replayer_adapter_go => /Users/duyphuongnguyen/GolandProjects/temporal-goland-plugin/replayer-adapter-go
 
 replace example => ../workflow-code/
 
 require (
 	example v0.0.0-00010101000000-000000000000
 	go.temporal.io/sdk v1.35.0
-	replayer_adapter v0.0.0-00010101000000-000000000000
+	replayer_adapter_go v0.0.0-00010101000000-000000000000
 )
 
 require (
