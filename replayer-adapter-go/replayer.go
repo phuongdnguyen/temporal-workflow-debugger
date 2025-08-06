@@ -214,36 +214,55 @@ func getHistoryFromIDE() (*historypb.History, error) {
 		port = "54578"
 	}
 	runnerAddr := "http://127.0.0.1:" + port
-	client := http.DefaultClient
+	
+	// Create client with timeout to match other implementations
+	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Get(runnerAddr + "/history")
 	if err != nil {
-		return nil, fmt.Errorf("could not get history: %v", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("could not get history: %v", resp.StatusCode)
+		return nil, fmt.Errorf("could not get history from IDE: %v", err)
 	}
 	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("could not get history from IDE: HTTP %d", resp.StatusCode)
+	}
+	
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("could not read history: %v", err)
+		return nil, fmt.Errorf("could not read history response: %v", err)
 	}
+	
+	// Convert JSON response to protobuf format
 	hist, err := extractHistoryFromJsonBytes(body, 0)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse history: %v", err)
 	}
+	
 	// Store runner address for breakpoint checks
 	debuggerAddr = runnerAddr
 	return hist, nil
 }
 
 func extractHistoryFromJsonBytes(body []byte, lastEventID int64) (hist *historypb.History, err error) {
+	fmt.Printf("extractHistoryFromJsonBytes, body length: %d bytes\n", len(body))
+	
+	// Validate that we have JSON data
+	if len(body) == 0 {
+		return nil, fmt.Errorf("empty history data received")
+	}
+	
 	opts := temporalproto.CustomJSONUnmarshalOptions{
 		DiscardUnknown: true,
 	}
 
 	hist = &historypb.History{}
 	if err := opts.Unmarshal(body, hist); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal history JSON to protobuf: %w", err)
+	}
+
+	// Validate that we have events
+	if len(hist.Events) == 0 {
+		return nil, fmt.Errorf("history contains no events")
 	}
 
 	// If there is a last event ID, slice the rest off
@@ -257,5 +276,6 @@ func extractHistoryFromJsonBytes(body []byte, lastEventID int64) (hist *historyp
 		}
 	}
 
-	return hist, err
+	fmt.Printf("Successfully parsed history with %d events\n", len(hist.Events))
+	return hist, nil
 }
