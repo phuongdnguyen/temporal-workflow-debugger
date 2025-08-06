@@ -25,22 +25,24 @@ function mustBeAddrInfo(info: string | AddressInfo | null): asserts info is Addr
 }
 
 export class Server {
-  static async create(address = "127.0.0.1", port = 10000): Promise<Server> {
+  static async create(address = "127.0.0.1", port = 54578): Promise<Server> {
     const app = express()
     app.use(express.json())
     app.get("/history", async (_req, res) => {
       try {
         const { currentHistoryBuffer } = await HistoryDebuggerPanel.instance
         if (!currentHistoryBuffer) {
-          res.status(404).send({ error: "No current history available" })
+          res.status(404).json({ error: "No current history available" })
           return
         }
+        // Set Content-Type to match Java extension (application/octet-stream for raw bytes)
+        res.setHeader("Content-Type", "application/octet-stream")
         res.end(currentHistoryBuffer)
       } catch (error) {
-        res.status(500).send({ error: `${error}` })
+        res.status(500).json({ error: `${error}` })
       }
     })
-    app.post("/current-wft-started", async (req, res) => {
+    app.post("/current-event", async (req, res) => {
       if (!(typeof req.body === "object" && typeof req.body.eventId === "number")) {
         res.status(400).send({ error: "Bad request" })
         return
@@ -54,6 +56,17 @@ export class Server {
         return
       }
       res.end()
+    })
+    app.get("/breakpoints", async (_req, res) => {
+      try {
+        const instance = await HistoryDebuggerPanel.instance
+        const breakpoints = instance.getEnabledBreakpoints()
+        res.status(200).json({
+          breakpoints: breakpoints
+        })
+      } catch (error) {
+        res.status(500).json({ error: `${error}` })
+      }
     })
     const server = new http.Server(app)
     await listen(server, port, address)

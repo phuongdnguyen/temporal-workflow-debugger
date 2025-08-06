@@ -1,7 +1,8 @@
 import * as vscode from "vscode"
-import os from "node:os"
-import path from "node:path"
-import http from "node:http"
+import * as os from "node:os"
+import * as path from "node:path"
+import * as http from "node:http"
+import { spawn, ChildProcess } from "node:child_process"
 import { historyFromJSON } from "@temporalio/common/lib/proto-utils"
 import { temporal } from "@temporalio/proto"
 import { Connection, LOCAL_TARGET } from "@temporalio/client"
@@ -51,6 +52,10 @@ export class HistoryDebuggerPanel {
   }
 
   public currentHistoryBuffer?: Buffer
+  private originalHistoryJSON?: any // Store the original JSON for the /history endpoint
+  private enabledBreakpoints: Set<number> = new Set() // Store breakpoints like Java extension
+  private backgroundProcess?: ChildProcess // Background process to run alongside debugging
+  private debugSessionDisposables: vscode.Disposable[] = [] // Debug session event listeners
 
   public static readonly viewType = "temporal-debugger-plugin"
 
@@ -70,9 +75,191 @@ export class HistoryDebuggerPanel {
       setTimeout(() => reject(new Error("Timed out waiting for response from webview")), 5000)
     })
     await this.panel.webview.postMessage({ type: "currentWFTUpdated", eventId })
-    const hasBreakpoint = await p
-    if (hasBreakpoint) {
-      await vscode.commands.executeCommand("workbench.action.debug.pause")
+    // If hasBreakpoint, the event will be highlighted in the history panel
+    // No need to pause the VSCode debugger - just let the highlighting show the breakpoint hit
+  }
+
+  // Breakpoint management methods (compatible with Java extension)
+  public getEnabledBreakpoints(): number[] {
+    return Array.from(this.enabledBreakpoints)
+  }
+
+  public toggleBreakpoint(eventId: number): boolean {
+    if (this.enabledBreakpoints.has(eventId)) {
+      this.enabledBreakpoints.delete(eventId)
+      return false
+    } else {
+      this.enabledBreakpoints.add(eventId)
+      return true
+    }
+  }
+
+  public addBreakpoint(eventId: number): void {
+    this.enabledBreakpoints.add(eventId)
+  }
+
+  public removeBreakpoint(eventId: number): void {
+    this.enabledBreakpoints.delete(eventId)
+  }
+
+  public clearAllBreakpoints(): void {
+    this.enabledBreakpoints.clear()
+  }
+
+  public async syncBreakpointsToWebview(): Promise<void> {
+    await this.panel.webview.postMessage({
+      type: "breakpointsUpdated",
+      breakpoints: Array.from(this.enabledBreakpoints)
+    })
+  }
+
+  /**
+   * Starts a background process programmatically.
+   * This is a public method that can be called from other parts of the extension.
+   * @param command The command to run
+   * @param args Array of arguments for the command
+   * @param options Optional spawn options
+   */
+  public async startBackgroundProcessProgrammatically(command: string, args: string[] = [], options: any = {}): Promise<void> {
+    await this.startBackgroundProcess(command, args, options)
+  }
+
+  /**
+   * Terminates the background process programmatically.
+   * This is a public method that can be called from other parts of the extension.
+   */
+  public async terminateBackgroundProcessProgrammatically(): Promise<void> {
+    await this.terminateBackgroundProcess()
+  }
+
+  /**
+   * Checks if a background process is currently running.
+   */
+  public isBackgroundProcessRunning(): boolean {
+    return this.backgroundProcess !== undefined && !this.backgroundProcess.killed
+  }
+
+  /**
+   * Starts a background process before debugging begins.
+   * The process will be terminated when the debug session ends.
+   * @param command The command to run (e.g., "npm", "go", "python")
+   * @param args Array of arguments for the command
+   * @param options Optional spawn options (cwd, env, etc.)
+   */
+  private async startBackgroundProcess(command: string, args: string[] = [], options: any = {}): Promise<void> {
+    // Terminate any existing background process
+    await this.terminateBackgroundProcess()
+
+    try {
+      console.log(`Starting background process: ${command} ${args.join(' ')}`)
+
+      this.backgroundProcess = spawn(command, args, {
+        cwd: options.cwd || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+        env: { ...process.env, ...options.env },
+        stdio: ['ignore', 'pipe', 'pipe'], // Capture stdout and stderr
+        ...options
+      })
+
+      // Log output from the background process
+      this.backgroundProcess.stdout?.on('data', (data) => {
+        console.log(`Background process stdout: ${data.toString()}`)
+      })
+
+      this.backgroundProcess.stderr?.on('data', (data) => {
+        console.log(`Background process stderr: ${data.toString()}`)
+      })
+
+      this.backgroundProcess.on('error', (error) => {
+        console.error(`Background process error: ${error.message}`)
+        vscode.window.showErrorMessage(`Background process failed: ${error.message}`)
+      })
+
+      this.backgroundProcess.on('exit', (code, signal) => {
+        console.log(`Background process exited with code ${code}, signal ${signal}`)
+        this.backgroundProcess = undefined
+      })
+
+      // Give the process a moment to start
+      await new Promise(resolve => setTimeout(resolve, 2000))
+
+      if (this.backgroundProcess?.killed) {
+        throw new Error('Background process failed to start')
+      }
+
+      console.log(`Background process started successfully (PID: ${this.backgroundProcess?.pid})`)
+    } catch (error) {
+      console.error(`Failed to start background process: ${error}`)
+      throw error
+    }
+  }
+
+  /**
+ * Terminates the background process if it's running
+ */
+  private async terminateBackgroundProcess(): Promise<void> {
+    if (this.backgroundProcess && !this.backgroundProcess.killed) {
+      console.log(`Terminating background process (PID: ${this.backgroundProcess.pid})`)
+
+      try {
+        // Try graceful termination first
+        this.backgroundProcess.kill('SIGTERM')
+
+        // Wait up to 5 seconds for graceful termination
+        await new Promise<void>((resolve) => {
+          const timeout = setTimeout(() => {
+            if (this.backgroundProcess && !this.backgroundProcess.killed) {
+              console.log('Forcefully killing background process')
+              this.backgroundProcess.kill('SIGKILL')
+            }
+            resolve()
+          }, 5000)
+
+          this.backgroundProcess?.on('exit', () => {
+            clearTimeout(timeout)
+            resolve()
+          })
+        })
+      } catch (error) {
+        console.error(`Error terminating background process: ${error}`)
+      }
+
+      this.backgroundProcess = undefined
+    }
+  }
+
+  /**
+   * Sets up debug session event listeners to manage background process lifecycle
+   */
+  private setupDebugSessionListeners(): void {
+    // Listen for debug session termination
+    const onDidTerminateDebugSession = vscode.debug.onDidTerminateDebugSession(async (session) => {
+      // Check if this is our debug session by looking at the configuration
+      if (session.configuration && session.configuration.env?.TEMPORAL_DEBUGGER_PLUGIN_URL === this.server.url) {
+        console.log('Debug session terminated, cleaning up background process')
+        await this.terminateBackgroundProcess()
+      }
+    })
+
+    // Listen for debug session start (for logging purposes)
+    const onDidStartDebugSession = vscode.debug.onDidStartDebugSession(async (session) => {
+      if (session.configuration && session.configuration.env?.TEMPORAL_DEBUGGER_PLUGIN_URL === this.server.url) {
+        console.log('Debug session started successfully')
+      }
+    })
+
+    // Store the disposables so we can clean them up later
+    this.debugSessionDisposables.push(onDidTerminateDebugSession, onDidStartDebugSession)
+  }
+
+  /**
+   * Gets the background process configuration from VS Code settings
+   */
+  private getBackgroundProcessConfig(): { command?: string; args?: string[]; options?: any } {
+    const config = vscode.workspace.getConfiguration('temporal.debugger')
+    return {
+      command: config.get<string>('backgroundProcess.command'),
+      args: config.get<string[]>('backgroundProcess.args') || [],
+      options: config.get<any>('backgroundProcess.options') || {}
     }
   }
 
@@ -91,6 +278,9 @@ export class HistoryDebuggerPanel {
 
     // Set the webview's initial html content
     this.update()
+
+    // Set up debug session event listeners
+    this.setupDebugSessionListeners()
 
     let reloadServer: http.Server | undefined = undefined
     // Start a local HTTP server to automatically reload the webview when rollup completes.
@@ -117,6 +307,17 @@ export class HistoryDebuggerPanel {
   }
 
   public async dispose(): Promise<void> {
+    // Terminate any running background process
+    await this.terminateBackgroundProcess()
+
+    // Clean up debug session listeners
+    while (this.debugSessionDisposables.length) {
+      const disposable = this.debugSessionDisposables.pop()
+      if (disposable) {
+        disposable.dispose()
+      }
+    }
+
     // Clean up our resources
     this.panel.dispose()
 
@@ -210,6 +411,23 @@ export class HistoryDebuggerPanel {
         switch (e.type) {
           case "updateWorkflowTaskHasBreakpoint": {
             this.updateWorkflowTaskHasBreakpoint(e.hasBreakpoint)
+            // Also update our breakpoint storage if eventId is provided
+            if (e.eventId !== undefined) {
+              if (e.hasBreakpoint) {
+                this.addBreakpoint(e.eventId)
+              } else {
+                this.removeBreakpoint(e.eventId)
+              }
+            }
+            break
+          }
+          case "toggleBreakpoint": {
+            if (e.eventId !== undefined) {
+              const isEnabled = this.toggleBreakpoint(e.eventId)
+              console.log(`Breakpoint ${isEnabled ? 'enabled' : 'disabled'} for event ${e.eventId}`)
+              // Sync updated breakpoints back to webview
+              await this.syncBreakpointsToWebview()
+            }
             break
           }
           case "getSettings": {
@@ -240,7 +458,26 @@ export class HistoryDebuggerPanel {
           }
           case "startFromHistory": {
             const history = historyFromJSON(e.history)
-            await this.handleStartProject(history)
+            await this.handleStartProject(history, e.history) // Pass originalJSON
+            break
+          }
+          case "loadHistoryFromId": {
+            const history = await this.downloadHistory(e)
+            await this.handleLoadHistoryOnly(history)
+            break
+          }
+          case "loadHistoryFromFile": {
+            const history = historyFromJSON(e.history)
+            await this.handleLoadHistoryOnly(history, e.history) // Pass originalJSON
+            break
+          }
+          case "startDebugSession": {
+            if (!this.currentHistoryBuffer || !this.originalHistoryJSON) {
+              throw new Error("No history loaded. Please load history first.")
+            }
+            // Convert the stored JSON back to protobuf format for handleStartProject
+            const history = historyFromJSON(this.originalHistoryJSON)
+            await this.handleStartProject(history, this.originalHistoryJSON)
             break
           }
         }
@@ -338,15 +575,32 @@ export class HistoryDebuggerPanel {
   }
 
   /* eslint-disable @typescript-eslint/naming-convention */
-  private async handleStartProject(history: temporal.api.history.v1.IHistory): Promise<void> {
+  private async handleStartProject(history: temporal.api.history.v1.IHistory, originalJSON?: any): Promise<void> {
+    // Store history in JSON format for the /history endpoint (compatible with Go replayer)
+    let historyJSON: any
+    if (originalJSON) {
+      // Use the original JSON if provided (from startFromHistory case)
+      historyJSON = originalJSON
+    } else {
+      // Convert protobuf history to JSON format (from startFromId case)
+      const historyInstance = temporal.api.history.v1.History.create(history)
+      historyJSON = historyInstance.toJSON()
+    }
+
+    // Store as JSON bytes for the /history endpoint
+    const jsonString = JSON.stringify(historyJSON)
+    this.currentHistoryBuffer = Buffer.from(jsonString, 'utf8')
+    this.originalHistoryJSON = historyJSON
+
+    // Still send protobuf bytes to webview for UI processing
     const bytes = new Uint8Array(temporal.api.history.v1.History.encode(history).finish())
-    const buffer = Buffer.from(bytes)
-    this.currentHistoryBuffer = buffer
     const workspace = vscode.workspace.workspaceFolders?.[0]
     const replayerEndpoint = await this.getReplayerEndpoint()
     const language = getCurrentLanguage()
 
     await this.panel.webview.postMessage({ type: "historyProcessed", history: bytes })
+    // Sync current breakpoints to webview
+    await this.syncBreakpointsToWebview()
     // Make sure the panel is out of focus before starting a debug session, otherwise it will be replaced with an
     // editor
     if (vscode.window.tabGroups.all.length > 1) {
@@ -356,6 +610,25 @@ export class HistoryDebuggerPanel {
     }
 
     const baseConfig = await getBaseConfiguration()
+
+    // Start background process if configured
+    const backgroundProcessConfig = this.getBackgroundProcessConfig()
+    if (backgroundProcessConfig.command) {
+      try {
+        await this.startBackgroundProcess(
+          backgroundProcessConfig.command,
+          backgroundProcessConfig.args,
+          backgroundProcessConfig.options
+        )
+        console.log('Background process started successfully before debugging')
+      } catch (error) {
+        console.error('Failed to start background process:', error)
+        // Show error but don't prevent debugging from continuing
+        await vscode.window.showWarningMessage(
+          `Failed to start background process: ${error}. Debugging will continue without it.`
+        )
+      }
+    }
 
     // Language-specific configuration
     let debugConfig: vscode.DebugConfiguration
@@ -435,6 +708,30 @@ export class HistoryDebuggerPanel {
       )
       throw err
     }
+  }
+
+  private async handleLoadHistoryOnly(history: temporal.api.history.v1.IHistory, originalJSON?: any): Promise<void> {
+    // Store history in JSON format for the /history endpoint (compatible with Go replayer)
+    let historyJSON: any
+    if (originalJSON) {
+      // Use the original JSON if provided (from loadHistoryFromFile case)
+      historyJSON = originalJSON
+    } else {
+      // Convert protobuf history to JSON format (from loadHistoryFromId case)
+      const historyInstance = temporal.api.history.v1.History.create(history)
+      historyJSON = historyInstance.toJSON()
+    }
+
+    // Store as JSON bytes for the /history endpoint
+    const jsonString = JSON.stringify(historyJSON)
+    this.currentHistoryBuffer = Buffer.from(jsonString, 'utf8')
+    this.originalHistoryJSON = historyJSON
+
+    // Send protobuf bytes to webview for UI processing
+    const bytes = new Uint8Array(temporal.api.history.v1.History.encode(history).finish())
+    await this.panel.webview.postMessage({ type: "historyProcessed", history: bytes })
+    // Sync current breakpoints to webview
+    await this.syncBreakpointsToWebview()
   }
 
   private getHtmlForWebview(webview: vscode.Webview): string {

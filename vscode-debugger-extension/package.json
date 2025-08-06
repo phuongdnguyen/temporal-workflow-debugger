@@ -63,14 +63,65 @@
             "Java with built-in debugger",
             "Python with built-in debugger"
           ]
+        },
+        "temporal.debugger.backgroundProcess.command": {
+          "type": "string",
+          "description": "Command to run as a background process before starting the debug session. The process will be terminated when the debug session ends.",
+          "examples": [
+            "npm",
+            "go",
+            "python",
+            "docker"
+          ]
+        },
+        "temporal.debugger.backgroundProcess.args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Arguments to pass to the background process command.",
+          "examples": [
+            ["run", "start"],
+            ["run", "main.go"],
+            ["run", "server.py"],
+            ["run", "-d", "my-container"]
+          ]
+        },
+        "temporal.debugger.backgroundProcess.options": {
+          "type": "object",
+          "description": "Additional options for the background process (cwd, env variables, etc.).",
+          "properties": {
+            "cwd": {
+              "type": "string",
+              "description": "Working directory for the background process"
+            },
+            "env": {
+              "type": "object",
+              "description": "Environment variables for the background process",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "default": {},
+          "examples": [
+            {
+              "cwd": "./server",
+              "env": {
+                "PORT": "3000",
+                "NODE_ENV": "development"
+              }
+            }
+          ]
         }
       }
     }
   },
   "dependencies": {
-    "@temporalio/client": "^1.10.1",
-    "@temporalio/common": "^1.10.1",
-    "@temporalio/proto": "^1.10.1",
+    "@temporalio/client": "^1.12.0",
+    "@temporalio/common": "^1.12.0",
+    "@temporalio/proto": "^1.12.0",
     "@vscode/webview-ui-toolkit": "^1.4.0",
     "express": "^4.19.2",
     "ts-node": "^10.9.2"

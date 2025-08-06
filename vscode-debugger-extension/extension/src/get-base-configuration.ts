@@ -23,9 +23,12 @@ const nodeConfiguration = {
 const goConfiguration = {
   name: "Launch Program",
   type: "go",
-  request: "launch",
-  mode: "debug",
-  program: "${workspaceFolder}", // Will be overridden with actual replayer endpoint
+  request: "attach",
+  mode: "remote",
+  "port": 60000,
+  host: "127.0.0.1",
+  apiVersion: 2,
+  showLog: true,
   internalConsoleOptions: "openOnSessionStart",
 } satisfies vscode.DebugConfiguration
 

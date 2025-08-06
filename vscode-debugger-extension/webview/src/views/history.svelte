@@ -12,12 +12,23 @@
   export let history: History
   const workflowTasks = getWorkflowTasks(history)
   let currentWorkflowTaskStartedEventId = -1
+  let enabledBreakpoints: Set<number> = new Set()
+
+  // Update workflowTasks breakpoint state when enabledBreakpoints changes
+  $: {
+    workflowTasks.forEach(task => {
+      if (task.startedEventId !== undefined) {
+        task.hasBreakpoint = enabledBreakpoints.has(task.startedEventId)
+      }
+    })
+  }
 
   onMount(() => {
     const listener = ({ detail }: CustomEvent<number>) => {
       currentWorkflowTaskStartedEventId = detail
       vscode.postMessage({
         type: "updateWorkflowTaskHasBreakpoint",
+        eventId: currentWorkflowTaskStartedEventId,
         hasBreakpoint:
           workflowTasks.find(({ startedEventId }) => startedEventId === currentWorkflowTaskStartedEventId)
             ?.hasBreakpoint ?? false,
@@ -25,8 +36,14 @@
     }
     eventEmitter.addEventListener("currentWFTUpdated", listener as EventListener)
 
+    const breakpointListener = ({ detail }: CustomEvent<Set<number>>) => {
+      enabledBreakpoints = detail
+    }
+    eventEmitter.addEventListener("breakpointsUpdated", breakpointListener as EventListener)
+
     return () => {
       eventEmitter.removeEventListener("currentWFTUpdated", listener as EventListener)
+      eventEmitter.removeEventListener("breakpointsUpdated", breakpointListener as EventListener)
     }
   })
 
@@ -56,11 +73,20 @@
   $: {
     currentWorkflowTaskStartedEventId
   }
+
+  function startDebugSession() {
+    vscode.postMessage({
+      type: "startDebugSession"
+    })
+  }
 </script>
 
 <section>
   <h1>{title(history)}</h1>
   <p>Duration: {duration(history)}</p>
+  <div class="start-button-container">
+    <vscode-button on:click={startDebugSession}>Start Debug Session</vscode-button>
+  </div>
   {#each workflowTasks as workflowTask, i}
     <ul class:current={workflowTask.startedEventId === currentWorkflowTaskStartedEventId}>
       <div class="workflow-task">
@@ -110,5 +136,8 @@
   }
   .workflow-task p {
     margin: 0;
+  }
+  .start-button-container {
+    margin: 1rem 0;
   }
 </style>

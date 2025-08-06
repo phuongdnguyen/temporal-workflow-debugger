@@ -8,6 +8,14 @@
   function toggleBreakpoint() {
     console.log("toggleBreakpoint", workflowTask)
     hasBreakpoint = workflowTask.hasBreakpoint = !workflowTask.hasBreakpoint
+    
+    // Send toggle message to extension with eventId
+    // @ts-ignore
+    vscode.postMessage({
+      type: "toggleBreakpoint",
+      eventId: workflowTask.startedEventId,
+      hasBreakpoint: hasBreakpoint
+    })
   }
 
   function handleKeyPress(e: KeyboardEvent) {

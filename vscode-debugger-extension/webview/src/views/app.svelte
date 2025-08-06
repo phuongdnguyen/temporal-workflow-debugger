@@ -8,6 +8,7 @@
   type PanelTab = "settings-tab" | "main-tab" | "history-tab"
   let activeid: PanelTab = "main-tab"
   let currentHistory: temporal.api.history.v1.IHistory
+  let enabledBreakpoints: Set<number> = new Set()
   const eventEmitter = new EventTarget()
 
   onMount(() => {
@@ -22,6 +23,10 @@
         case "historyProcessed":
           currentHistory = temporal.api.history.v1.History.decode(event.data.history)
           activeid = "history-tab"
+          break
+        case "breakpointsUpdated":
+          enabledBreakpoints = new Set(event.data.breakpoints)
+          eventEmitter.dispatchEvent(new CustomEvent("breakpointsUpdated", { detail: enabledBreakpoints }))
           break
         default:
           throw new Error("Unexpected event type")
