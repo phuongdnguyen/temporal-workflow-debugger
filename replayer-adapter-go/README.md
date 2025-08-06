@@ -5,7 +5,7 @@ A Go adapter for debugging Temporal workflows by replaying execution history wit
 ## Installation
 
 ```bash
-go get github.com/phuongdnguyen/temporal-goland-plugin/replayer-adapter-go
+go get github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go
 ```
 
 ## Overview
@@ -27,7 +27,7 @@ This adapter provides workflow replay functionality for Temporal Go SDK applicat
 ```go
 import (
     "go.temporal.io/sdk/worker"
-    replayeradapter "github.com/phuongdnguyen/temporal-goland-plugin/replayer-adapter-go"
+    replayeradapter "github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go"
 )
 
 // Set replay mode
