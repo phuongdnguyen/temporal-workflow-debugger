@@ -35,3 +35,5 @@ You can run the debugger in:
 
 Install the plugin from:
 - [Jetbrains marketplace](https://plugins.jetbrains.com/search?excludeTags=internal&products=androidstudio&products=aqua&products=clion&products=dataspell&products=dbe&products=fleet&products=go&products=idea&products=idea_ce&products=mps&products=phpstorm&products=pycharm&products=rider&products=ruby&products=rust&products=webstorm&products=writerside&search=Temporal%20workflow%20debugger)
+
+- [Vscode marketplace]()
