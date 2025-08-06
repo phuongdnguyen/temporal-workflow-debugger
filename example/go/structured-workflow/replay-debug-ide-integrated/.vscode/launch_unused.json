@@ -1,0 +1,16 @@
+// {
+//   "version": "0.2.0",
+//   "configurations": [
+//     {
+//       "name": "Attach Program",
+//       "type": "go",
+//       "request": "attach",
+//       "mode": "remote",
+//       "port": 60000,
+//       "host": "127.0.0.1",
+//       "apiVersion": 2,
+//       "showLog": true,
+//       "internalConsoleOptions": "openOnSessionStart",
+//     }
+//   ]
+// }
