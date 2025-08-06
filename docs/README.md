@@ -12,8 +12,7 @@ This plugin enables debugging of Temporal workflows.
 
 ## Quick Start
 
-1. Install the plugin in GoLand.
-2. Configure tdlv path and debug directory in settings.
-3. Upload workflow history JSON in the tool window.
-4. Set breakpoints on events.
-5. Click Run to start debugging. 
+1. Install the plugin.
+2. Upload workflow history JSON in the tool window.
+3. Set breakpoints on events.
+4. Click Run to start debugging. 

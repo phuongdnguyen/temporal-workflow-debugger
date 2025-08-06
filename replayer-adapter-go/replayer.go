@@ -1,3 +1,5 @@
+// Package replayer_adapter_go provides workflow replay functionality for Temporal Go SDK applications.
+// It enables debugging through standalone mode (using local history files) and IDE mode (with debugger UI integration).
 package replayer_adapter_go
 
 import (
@@ -44,23 +46,30 @@ var (
 	breakpoints = make(map[int]struct{})
 )
 
+// ReplayOptions configures the workflow replay behavior.
 type ReplayOptions struct {
 	WorkerReplayOptions worker.WorkflowReplayerOptions
 	// HistoryFilePath only used in Standalone mode, absolute path to the history file
 	HistoryFilePath string
 }
 
-// SetBreakpoints only used in Standalone mode
+// SetBreakpoints sets the event IDs where execution should pause during replay.
+// This function is only used in Standalone mode.
 func SetBreakpoints(eventIds []int) {
 	for _, eventId := range eventIds {
 		breakpoints[eventId] = struct{}{}
 	}
 }
 
+// SetReplayMode configures the replay mode (Standalone or IDE).
 func SetReplayMode(m ReplayMode) {
 	mode = m
 }
 
+// Replay executes workflow replay with the specified options and workflow function.
+// The behavior depends on the configured ReplayMode:
+// - ReplayModeStandalone: replays using the history file specified in opts.HistoryFilePath
+// - ReplayModeIde: replays by fetching history from the IDE debugger interface
 func Replay(opts ReplayOptions, wf any) error {
 	fmt.Printf("Replaying in mode %s", mode)
 	if mode == ReplayModeStandalone {
@@ -214,7 +223,7 @@ func getHistoryFromIDE() (*historypb.History, error) {
 		port = "54578"
 	}
 	runnerAddr := "http://127.0.0.1:" + port
-	
+
 	// Create client with timeout to match other implementations
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Get(runnerAddr + "/history")
@@ -222,22 +231,22 @@ func getHistoryFromIDE() (*historypb.History, error) {
 		return nil, fmt.Errorf("could not get history from IDE: %v", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("could not get history from IDE: HTTP %d", resp.StatusCode)
 	}
-	
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("could not read history response: %v", err)
 	}
-	
+
 	// Convert JSON response to protobuf format
 	hist, err := extractHistoryFromJsonBytes(body, 0)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse history: %v", err)
 	}
-	
+
 	// Store runner address for breakpoint checks
 	debuggerAddr = runnerAddr
 	return hist, nil
@@ -245,12 +254,12 @@ func getHistoryFromIDE() (*historypb.History, error) {
 
 func extractHistoryFromJsonBytes(body []byte, lastEventID int64) (hist *historypb.History, err error) {
 	fmt.Printf("extractHistoryFromJsonBytes, body length: %d bytes\n", len(body))
-	
+
 	// Validate that we have JSON data
 	if len(body) == 0 {
 		return nil, fmt.Errorf("empty history data received")
 	}
-	
+
 	opts := temporalproto.CustomJSONUnmarshalOptions{
 		DiscardUnknown: true,
 	}

@@ -7,15 +7,14 @@ name = "temporal-replayer-adapter-python"
 version = "0.1.0"
 description = "Python Replayer Adapter for Temporal workflows with debugging capabilities"
 authors = [
-    {name = "Temporal Technologies", email = "support@temporal.io"}
+    {name = "Duy Phuong Nguyen", email = "knowledge.phuongnguyen@gmail.com"}
 ]
-license = {text = "MIT"}
+license = "MIT"
 readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers", 
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9", 
@@ -32,10 +31,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/temporalio/temporal-goland-plugin"
-Repository = "https://github.com/temporalio/temporal-goland-plugin"
-Issues = "https://github.com/temporalio/temporal-goland-plugin/issues"
-Documentation = "https://github.com/temporalio/temporal-goland-plugin/blob/main/replayer-adapter-python/README.md"
+Homepage = "https://github.com/phuongdnguyen/temporal-workflow-debugger"
+Repository = "https://github.com/phuongdnguyen/temporal-workflow-debugger"
+Issues = "https://github.com/phuongdnguyen/temporal-workflow-debugger/issues"
+Documentation = "https://github.com/phuongdnguyen/temporal-workflow-debugger/blob/main/replayer-adapter-python/README.md"
 
 [project.optional-dependencies]
 dev = [
@@ -48,10 +47,9 @@ dev = [
 
 [tool.setuptools]
 packages = ["replayer_adapter_python"]
-package-dir = {"replayer_adapter_python" = "."}
 
 [tool.setuptools.package-data]
-replayer_adapter_python = ["*.py", "*.md"]
+replayer_adapter_python = ["*.py"]
 
 [tool.black]
 line-length = 88

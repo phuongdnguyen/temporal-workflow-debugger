@@ -1,13 +1,12 @@
 # Temporal Node.js Replayer Adapter
 
-This package provides a replayer adapter and interceptors for Temporal workflows in Node.js. It enables debugging and replaying workflows with breakpoint support in both standalone and IDE-integrated modes.
+Replayer adapter and interceptors for Temporal workflows in Node.js with breakpoint support for debugging.
 
 ## Features
 
-- **Standalone Mode**: Replay workflows from JSON history files with custom breakpoints
-- **IDE Integration Mode**: Connect to IDEs for interactive debugging
-- **Workflow Interceptors**: Automatically intercept workflow operations for debugging
-- **Activity Interceptors**: Intercept activity executions for comprehensive debugging
+- **Standalone Mode**: Replay workflows from JSON history files with breakpoints
+- **IDE Integration**: Connect to IDEs for interactive debugging
+- **Workflow Interceptors**: Automatically intercept workflow operations
 - **Breakpoint Support**: Set breakpoints at specific workflow event IDs
 
 ## Installation
@@ -21,18 +20,11 @@ npm install @temporal/replayer-adapter-nodejs
 ### Standalone Mode
 
 ```typescript
-import {
-  ReplayMode,
-  setReplayMode,
-  setBreakpoints,
-  replay
-} from '@temporal/replayer-adapter-nodejs';
-
-// IMPORTANT: Configure mode and breakpoints BEFORE calling replay()
-setReplayMode(ReplayMode.STANDALONE);
-setBreakpoints([1, 5, 10, 15]); // Set breakpoints at specific event IDs
+import { ReplayMode, replay } from '@temporal/replayer-adapter-nodejs';
 
 const options = {
+  mode: ReplayMode.STANDALONE,
+  breakpoints: [1, 5, 10, 15],
   historyFilePath: './workflow-history.json',
   workerReplayOptions: {
     workflowsPath: require.resolve('./workflows'),
@@ -45,118 +37,83 @@ await replay(options, myWorkflow);
 ### IDE Integration Mode
 
 ```typescript
-import {
-  ReplayMode,
-  setReplayMode,
-  replay
-} from '@temporal/replayer-adapter-nodejs';
-
-setReplayMode(ReplayMode.IDE);
+import { ReplayMode, replay } from '@temporal/replayer-adapter-nodejs';
 
 const options = {
+  mode: ReplayMode.IDE,
+  debuggerAddr: 'http://127.0.0.1:54578',
   workerReplayOptions: {
     workflowsPath: require.resolve('./workflows'),
   }
 };
 
-// Set environment variable for IDE connection
-process.env.WFDBG_HISTORY_PORT = '54578';
-
 await replay(options, myWorkflow);
 ```
 
-## Breakpoint Management
-
-### Setting Breakpoints
-
-Breakpoints are set by event ID numbers that correspond to events in your workflow history:
+## Configuration Options
 
 ```typescript
-import { setBreakpoints } from '@temporal/replayer-adapter-nodejs';
-
-// Set breakpoints at events 1, 5, 10, and 15
-setBreakpoints([1, 5, 10, 15]);
-
-// Update breakpoints (replaces previous ones)
-setBreakpoints([2, 4, 6, 8]);
-
-// Clear all breakpoints
-setBreakpoints([]);
+interface ReplayOptions {
+  mode?: ReplayMode;                    // STANDALONE or IDE
+  breakpoints?: number[];               // Event IDs to pause at
+  historyFilePath?: string;             // Required for STANDALONE mode
+  debuggerAddr?: string;                // Required for IDE mode
+  workerReplayOptions?: ReplayWorkerOptions;
+}
 ```
 
-### Important Notes
+## Alternative Configuration
 
-1. **Order Matters**: Always call `setReplayMode()` and `setBreakpoints()` BEFORE calling `replay()`
-2. **Event IDs**: Breakpoint numbers should correspond to actual event IDs in your workflow history
-3. **Standalone vs IDE**: In standalone mode, you manage breakpoints manually. In IDE mode, the IDE manages them
-4. **Empty by Default**: Breakpoints start empty - you must explicitly set them
+You can also configure using separate functions:
+
+```typescript
+import { setReplayMode, setBreakpoints, setDebuggerAddr } from '@temporal/replayer-adapter-nodejs';
+
+setReplayMode(ReplayMode.STANDALONE);
+setBreakpoints([1, 5, 10, 15]);
+setDebuggerAddr('http://127.0.0.1:54578');
+
+await replay(options, myWorkflow);
+```
 
 ## API Reference
 
 ### Functions
 
-#### `setReplayMode(mode: ReplayMode)`
-Set the replay mode (STANDALONE or IDE).
-
-#### `setBreakpoints(eventIds: number[])`
-Set breakpoints at specific workflow event IDs. Replaces any existing breakpoints.
-
-#### `replay(options: ReplayOptions, workflow: any): Promise<void>`
-Replay a workflow with the configured options and breakpoints.
+- `replay(options: ReplayOptions, workflow: any): Promise<void>`
+- `setReplayMode(mode: ReplayMode)`
+- `setBreakpoints(eventIds: number[])`
+- `setDebuggerAddr(addr: string)`
 
 ### Types
 
-#### `ReplayMode`
-- `STANDALONE`: Replay using local history file
-- `IDE`: Replay with IDE integration
-
-#### `ReplayOptions`
-```typescript
-interface ReplayOptions {
-  workerReplayOptions?: ReplayWorkerOptions;
-  historyFilePath?: string; // Required for STANDALONE mode
-}
-```
+- `ReplayMode.STANDALONE`: Replay using local history file
+- `ReplayMode.IDE`: Replay with IDE integration
 
 ## Troubleshooting
 
 ### Breakpoints Not Working
 
-If breakpoints aren't triggering, check:
+1. **Configuration**: Ensure breakpoints are set via options or functions
+2. **Event IDs**: Verify event IDs exist in workflow history
+3. **Mode**: Confirm correct replay mode is set
+4. **Console**: Check for breakpoint messages in console
 
-1. **Configuration Order**: Ensure you call `setBreakpoints()` before `replay()`
-2. **Event IDs**: Verify the event IDs exist in your workflow history
-3. **Mode Setting**: Confirm you've set the correct replay mode
-4. **Console Output**: Look for breakpoint checking messages in the console
+### IDE Connectivity
 
-### Example Console Output
-
-When working correctly, you should see output like:
-```
-Breakpoints updated to: [1, 5, 10, 15]
-Standalone checking breakpoints: [1, 5, 10, 15], eventId: 1
-✓ Hit breakpoint at eventId: 1
-```
-
-## Testing the Fix
-
-A test script is included to verify breakpoints work correctly:
-
-```bash
-npm run build
-node test-breakpoints.js
-```
-
-All tests should show "✓ PASS" if the breakpoint system is working correctly.
+For IDE mode, ensure:
+- Correct `debuggerAddr` is set
+- IDE debugger server is running
+- `WFDBG_HISTORY_PORT` environment variable is set if needed
 
 ## Examples
 
-See the `example/` directory for complete working examples of both standalone and IDE integration modes.
+See `example/js/` directory for complete working examples.
 
 ## Contributing
 
-Contributions are welcome! Please see the main repository for contribution guidelines.
+Contributions welcome! See main repository for guidelines.
 
 ## License
 
-See the main repository for license information. 
+See main repository for license information. 

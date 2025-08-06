@@ -2,5 +2,5 @@
     "temporal.replayerEntrypoint": "main.go",
     "temporal.debugLanguage": "go",
     "temporal.debugger.backgroundProcess.command": "tdlv",
-    "temporal.debugger.backgroundProcess.args": ["lang=go"]
+    "temporal.debugger.backgroundProcess.args": ["--lang=go"]
 }
