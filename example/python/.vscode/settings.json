@@ -1,6 +1,6 @@
 {
     "temporal.replayerEntrypoint": "vscode-replay.py",
     "temporal.debugLanguage": "python",
-    "temporal.debugger.backgroundProcess.command": "../../tdlv.build",
+    "temporal.debugger.backgroundProcess.command": "tdlv",
     "temporal.debugger.backgroundProcess.args": ["--lang=python"]
 }

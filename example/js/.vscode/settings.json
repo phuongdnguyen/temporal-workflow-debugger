@@ -1,6 +1,6 @@
 {
     "temporal.replayerEntrypoint": "vscode-replayer.ts",
     "temporal.debugLanguage": "typescript",
-    "temporal.debugger.backgroundProcess.command": "../../tdlv.build",
+    "temporal.debugger.backgroundProcess.command": "tdlv",
     "temporal.debugger.backgroundProcess.args": ["--lang=js"]
 }
