@@ -8,7 +8,7 @@ import {
   completeWorkflowSignal,
   getCurrentStatusQuery,
 } from './workflow';
-import { ReplayMode, setReplayMode, replay, setBreakpoints } from '@temporal/replayer-adapter-nodejs';
+import { ReplayMode, replay } from '@temporal/replayer-adapter-nodejs';
 
 // ====================
 // WORKER
@@ -85,9 +85,9 @@ async function startWorkflow(): Promise<string> {
 async function replayFromFile(historyPath: string = './history.json'): Promise<void> {
   try {
     // Configure adapter for standalone replay
-    setReplayMode(ReplayMode.STANDALONE);
-    setBreakpoints([9, 15])
     const opts = {
+      mode: ReplayMode.STANDALONE,
+      breakpoints: [9, 15],
       historyFilePath: historyPath,
       workerReplayOptions: {
         workflowsPath: require.resolve('./workflow'),
@@ -96,10 +96,10 @@ async function replayFromFile(historyPath: string = './history.json'): Promise<v
             'fs/promises',
             '@temporalio/worker',
             'http',
+            'path'
           ]
         }
       },
-      name: 'hehe'
     } as any; // adapter types
   
     await replay(opts, exampleWorkflow);

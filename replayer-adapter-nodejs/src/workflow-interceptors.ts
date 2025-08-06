@@ -2,6 +2,8 @@
  * Workflow interceptors for replayer adapter debugging.
  * These interceptors notify the runner when workflow operations occur,
  * enabling breakpoint support for workflow replay debugging.
+ * 
+ * This version uses worker threads for synchronous breakpoint fetching.
  */
 
 import {
@@ -10,29 +12,101 @@ import {
   WorkflowOutboundCallsInterceptor,
   workflowInfo,
 } from '@temporalio/workflow';
-import { raiseSentinelBreakpoint } from './replayer';
+
+/**
+ * Workflow-safe breakpoint checker using worker threads (synchronous)
+ */
+function isBreakpointSync(eventId: number): boolean {
+  try {
+    // Get the global function that was injected by the replayer
+    const fetchBreakpoints = globalThis.constructor.constructor('return globalThis.fetchBreakpointsFromWorkflow')();
+    if (!fetchBreakpoints) {
+      console.warn('fetchBreakpointsFromWorkflow not available, breakpoint checking disabled');
+      return false;
+    }
+    
+    // Get debugger address from global context
+    const getDebuggerAddr = globalThis.constructor.constructor('return globalThis.getDebuggerAddr')();
+    if (!getDebuggerAddr) {
+      console.warn('getDebuggerAddr not available, breakpoint checking disabled');
+      return false;
+    }
+    
+    const debuggerAddr = getDebuggerAddr();
+    
+    // For standalone mode, debuggerAddr will be null, and fetchBreakpoints returns the static list
+    let breakpointIds: number[];
+    if (!debuggerAddr) {
+      // Standalone mode: use breakpoints from options
+      breakpointIds = fetchBreakpoints();
+    } else {
+      // IDE mode: fetch breakpoints from debugger
+      breakpointIds = fetchBreakpoints(debuggerAddr);
+    }
+    
+    const isHit = breakpointIds.includes(eventId);
+    
+    if (isHit) {
+      console.log(`✓ Hit breakpoint at eventId: ${eventId}`);
+    } else {
+      console.log(`Event ${eventId} is not a breakpoint. Current breakpoints: [${breakpointIds.join(', ')}]`);
+    }
+    return isHit;
+  } catch (error) {
+    console.error(`Failed to check breakpoint for event ${eventId}: ${error}`);
+    return false;
+  }
+}
+
+/**
+ * Raise a breakpoint for debugging - called from interceptors
+ * This version uses worker threads for synchronous breakpoint fetching
+ */
+function raiseSentinelBreakpointSync(caller: string, info?: any): void {
+  let eventId: number | undefined;
+  
+  if (info) {
+    try {
+      // Try to get event ID from workflow info
+      eventId = info.historyLength || info.getCurrentHistoryLength?.();
+    } catch (error) {
+      eventId = undefined;
+    }
+  }
+  
+  if (eventId !== undefined) {
+    console.log(`runner notified at ${caller}, eventId: ${eventId}`);
+    
+    // Synchronous breakpoint checking using worker threads
+    const shouldBreak = isBreakpointSync(eventId);
+    if (shouldBreak) {
+      console.log(`Pause at event ${eventId}`);
+      debugger;
+    }
+  }
+}
 
 /**
  * Inbound interceptor that catches workflow entry points
  */
 class RunnerWorkflowInboundInterceptor implements WorkflowInboundCallsInterceptor {
   async execute(input: any, next: any): Promise<any> {
-    raiseSentinelBreakpoint('ExecuteWorkflow', workflowInfo());
+    raiseSentinelBreakpointSync('ExecuteWorkflow', workflowInfo());
     return next(input);
   }
 
   async handleSignal(input: any, next: any): Promise<any> {
-    raiseSentinelBreakpoint('HandleSignal', workflowInfo());
+    raiseSentinelBreakpointSync('HandleSignal', workflowInfo());
     return next(input);
   }
 
   async handleQuery(input: any, next: any): Promise<any> {
-    raiseSentinelBreakpoint('HandleQuery', workflowInfo());
+    raiseSentinelBreakpointSync('HandleQuery', workflowInfo());
     return next(input);
   }
 
   async handleUpdate(input: any, next: any): Promise<any> {
-    raiseSentinelBreakpoint('HandleUpdate', workflowInfo());
+    raiseSentinelBreakpointSync('HandleUpdate', workflowInfo());
     return next(input);
   }
 }
@@ -46,9 +120,9 @@ class RunnerWorkflowOutboundInterceptor implements WorkflowOutboundCallsIntercep
       return await next(input);
     } finally {
       try {
-        raiseSentinelBreakpoint('ExecuteActivity', workflowInfo());
+        raiseSentinelBreakpointSync('ExecuteActivity', workflowInfo());
       } catch (error) {
-        raiseSentinelBreakpoint('ExecuteActivity', null);
+        raiseSentinelBreakpointSync('ExecuteActivity', null);
       }
     }
   }
@@ -58,9 +132,9 @@ class RunnerWorkflowOutboundInterceptor implements WorkflowOutboundCallsIntercep
       return await next(input);
     } finally {
       try {
-        raiseSentinelBreakpoint('ExecuteLocalActivity', workflowInfo());
+        raiseSentinelBreakpointSync('ExecuteLocalActivity', workflowInfo());
       } catch (error) {
-        raiseSentinelBreakpoint('ExecuteLocalActivity', null);
+        raiseSentinelBreakpointSync('ExecuteLocalActivity', null);
       }
     }
   }
@@ -68,10 +142,10 @@ class RunnerWorkflowOutboundInterceptor implements WorkflowOutboundCallsIntercep
   async startChildWorkflowExecution(input: any, next: any): Promise<any> {
     try {
       const result = await next(input);
-      raiseSentinelBreakpoint('ExecuteChildWorkflow', workflowInfo());
+      raiseSentinelBreakpointSync('ExecuteChildWorkflow', workflowInfo());
       return result;
     } catch (error) {
-      raiseSentinelBreakpoint('ExecuteChildWorkflow', null);
+      raiseSentinelBreakpointSync('ExecuteChildWorkflow', null);
       throw error;
     }
   }
@@ -81,9 +155,9 @@ class RunnerWorkflowOutboundInterceptor implements WorkflowOutboundCallsIntercep
       return await next(input);
     } finally {
       try {
-        raiseSentinelBreakpoint('NewTimer', workflowInfo());
+        raiseSentinelBreakpointSync('NewTimer', workflowInfo());
       } catch (error) {
-        raiseSentinelBreakpoint('NewTimer', null);
+        raiseSentinelBreakpointSync('NewTimer', null);
       }
     }
   }
@@ -93,9 +167,9 @@ class RunnerWorkflowOutboundInterceptor implements WorkflowOutboundCallsIntercep
       return await next(input);
     } finally {
       try {
-        raiseSentinelBreakpoint('SignalExternalWorkflow', workflowInfo());
+        raiseSentinelBreakpointSync('SignalExternalWorkflow', workflowInfo());
       } catch (error) {
-        raiseSentinelBreakpoint('SignalExternalWorkflow', null);
+        raiseSentinelBreakpointSync('SignalExternalWorkflow', null);
       }
     }
   }
@@ -105,54 +179,35 @@ class RunnerWorkflowOutboundInterceptor implements WorkflowOutboundCallsIntercep
       return await next(input);
     } finally {
       try {
-        raiseSentinelBreakpoint('RequestCancelExternalWorkflow', workflowInfo());
+        raiseSentinelBreakpointSync('RequestCancelExternalWorkflow', workflowInfo());
       } catch (error) {
-        raiseSentinelBreakpoint('RequestCancelExternalWorkflow', null);
+        raiseSentinelBreakpointSync('RequestCancelExternalWorkflow', null);
       }
     }
   }
 
-  async sleep(input: any, next: any): Promise<any> {
-    try {
-      return await next(input);
-    } finally {
-      try {
-        raiseSentinelBreakpoint('Sleep', workflowInfo());
-      } catch (error) {
-        raiseSentinelBreakpoint('Sleep', null);
-      }
-    }
-  }
-
-  sideEffect(input: any, next: any): any {
+  continueAsNew(input: any, next: any): any {
     try {
       const result = next(input);
-      raiseSentinelBreakpoint('SideEffect', workflowInfo());
+      raiseSentinelBreakpointSync('NewContinueAsNewError', workflowInfo());
       return result;
     } catch (error) {
-      raiseSentinelBreakpoint('SideEffect', null);
+      raiseSentinelBreakpointSync('NewContinueAsNewError', null);
       throw error;
     }
   }
 
-  mutableSideEffect(input: any, next: any): any {
-    try {
-      const result = next(input);
-      raiseSentinelBreakpoint('MutableSideEffect', workflowInfo());
-      return result;
-    } catch (error) {
-      raiseSentinelBreakpoint('MutableSideEffect', null);
-      throw error;
-    }
+  getLogAttributes(input: any, next: any): any {
+    return next(input);
   }
 
   now(next: any): any {
     try {
       const result = next();
-      raiseSentinelBreakpoint('Now', workflowInfo());
+      raiseSentinelBreakpointSync('Now', workflowInfo());
       return result;
     } catch (error) {
-      raiseSentinelBreakpoint('Now', null);
+      raiseSentinelBreakpointSync('Now', null);
       throw error;
     }
   }
@@ -160,10 +215,10 @@ class RunnerWorkflowOutboundInterceptor implements WorkflowOutboundCallsIntercep
   upsertSearchAttributes(input: any, next: any): any {
     try {
       const result = next(input);
-      raiseSentinelBreakpoint('UpsertSearchAttributes', workflowInfo());
+      raiseSentinelBreakpointSync('UpsertSearchAttributes', workflowInfo());
       return result;
     } catch (error) {
-      raiseSentinelBreakpoint('UpsertSearchAttributes', null);
+      raiseSentinelBreakpointSync('UpsertSearchAttributes', null);
       throw error;
     }
   }
@@ -171,10 +226,10 @@ class RunnerWorkflowOutboundInterceptor implements WorkflowOutboundCallsIntercep
   upsertMemo(input: any, next: any): any {
     try {
       const result = next(input);
-      raiseSentinelBreakpoint('UpsertMemo', workflowInfo());
+      raiseSentinelBreakpointSync('UpsertMemo', workflowInfo());
       return result;
     } catch (error) {
-      raiseSentinelBreakpoint('UpsertMemo', null);
+      raiseSentinelBreakpointSync('UpsertMemo', null);
       throw error;
     }
   }
@@ -182,39 +237,80 @@ class RunnerWorkflowOutboundInterceptor implements WorkflowOutboundCallsIntercep
   getVersion(input: any, next: any): any {
     try {
       const result = next(input);
-      raiseSentinelBreakpoint('GetVersion', workflowInfo());
+      raiseSentinelBreakpointSync('GetVersion', workflowInfo());
       return result;
     } catch (error) {
-      raiseSentinelBreakpoint('GetVersion', null);
+      raiseSentinelBreakpointSync('GetVersion', null);
       throw error;
     }
   }
 
-  isReplaying(next: any): any {
+  random(next: any): any {
     try {
       const result = next();
-      raiseSentinelBreakpoint('IsReplaying', workflowInfo());
+      raiseSentinelBreakpointSync('Random', workflowInfo());
       return result;
     } catch (error) {
-      raiseSentinelBreakpoint('IsReplaying', null);
+      raiseSentinelBreakpointSync('Random', null);
       throw error;
     }
   }
 
-  continueAsNew(input: any, next: any): any {
+  uuid4(next: any): any {
     try {
-      const result = next(input);
-      raiseSentinelBreakpoint('NewContinueAsNewError', workflowInfo());
+      const result = next();
+      raiseSentinelBreakpointSync('UUID4', workflowInfo());
       return result;
     } catch (error) {
-      raiseSentinelBreakpoint('NewContinueAsNewError', null);
+      raiseSentinelBreakpointSync('UUID4', null);
       throw error;
     }
+  }
+
+  sideEffect(input: any, next: any): any {
+    try {
+      const result = next(input);
+      raiseSentinelBreakpointSync('SideEffect', workflowInfo());
+      return result;
+    } catch (error) {
+      raiseSentinelBreakpointSync('SideEffect', null);
+      throw error;
+    }
+  }
+
+  mutableSideEffect(input: any, next: any): any {
+    try {
+      const result = next(input);
+      raiseSentinelBreakpointSync('MutableSideEffect', workflowInfo());
+      return result;
+    } catch (error) {
+      raiseSentinelBreakpointSync('MutableSideEffect', null);
+      throw error;
+    }
+  }
+
+  sleep(input: any, next: any): any {
+    try {
+      const result = next(input);
+      raiseSentinelBreakpointSync('Sleep', workflowInfo());
+      return result;
+    } catch (error) {
+      raiseSentinelBreakpointSync('Sleep', null);
+      throw error;
+    }
+  }
+
+  deprecatePatch(input: any, next: any): any {
+    return next(input);
+  }
+
+  patched(input: any, next: any): any {
+    return next(input);
   }
 }
 
 /**
- * Factory function that creates interceptors for workflow replay debugging
+ * Factory function to create the interceptors
  */
 export const interceptors: WorkflowInterceptorsFactory = () => ({
   inbound: [new RunnerWorkflowInboundInterceptor()],

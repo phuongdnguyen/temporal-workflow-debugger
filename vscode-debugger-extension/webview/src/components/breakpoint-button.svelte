@@ -1,0 +1,42 @@
+<script lang="ts">
+  import type { WorkflowTask } from "../lib"
+  import Icon from "./icon/icon.svelte"
+
+  export let workflowTask: WorkflowTask
+  let hasBreakpoint = workflowTask.hasBreakpoint
+
+  function toggleBreakpoint() {
+    console.log("toggleBreakpoint", workflowTask)
+    hasBreakpoint = workflowTask.hasBreakpoint = !workflowTask.hasBreakpoint
+    
+    // Send toggle message to extension with eventId
+    // @ts-ignore
+    vscode.postMessage({
+      type: "toggleBreakpoint",
+      eventId: workflowTask.startedEventId,
+      hasBreakpoint: hasBreakpoint
+    })
+  }
+
+  function handleKeyPress(e: KeyboardEvent) {
+    if (e.code === "Space" || e.code === "Enter") {
+      e.preventDefault()
+      toggleBreakpoint()
+    }
+  }
+</script>
+
+<div class="breakpoint" on:keypress={handleKeyPress} on:click={toggleBreakpoint}>
+  <Icon
+    name="circle-filled"
+    fill={hasBreakpoint ? "#FF0000" : "currentColor"}
+    role="checkbox"
+    aria-checked={hasBreakpoint}
+    tabindex={0} />
+</div>
+
+<style>
+  .breakpoint {
+    margin: 0.25rem 0.25rem 0 0.25rem;
+  }
+</style>

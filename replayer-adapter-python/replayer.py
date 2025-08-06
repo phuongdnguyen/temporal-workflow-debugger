@@ -302,7 +302,7 @@ class RunnerWorkerInterceptor(Interceptor):
         """Intercept activity calls."""
         return RunnerActivityInboundInterceptor(next)
 
-def get_history_from_ide() -> dict:
+def get_history_from_ide() -> WorkflowHistory:
     """Get workflow history from IDE via HTTP"""
     global debugger_addr
     port = os.environ.get("WFDBG_HISTORY_PORT", "54578")
@@ -311,7 +311,8 @@ def get_history_from_ide() -> dict:
         resp = requests.get(f"{runner_addr}/history", timeout=5)
         resp.raise_for_status()
         debugger_addr = runner_addr
-        return resp.json()
+        hist_json = resp.json()
+        return WorkflowHistory.from_json("replayed-worker", hist_json)
     except Exception as e:
         logger.error(f"Could not get history from IDE: {e}")
         raise
@@ -327,7 +328,7 @@ def replay(opts: ReplayOptions, wf: Any):
         hist = get_history_from_ide()
         return replay_with_history(opts.worker_replay_options, hist, wf)
 
-def replay_with_history(opts: ReplayerConfig, hist: dict, wf: Any):
+def replay_with_history(opts: ReplayerConfig, hist: WorkflowHistory, wf: Any):
     """Replay workflow with history data"""
     # Add our custom interceptor to the config
     interceptors = list(opts.get('interceptors', []))

@@ -1,69 +1,45 @@
-# Node.js Replayer Adapter for Temporal
+# Temporal Node.js Replayer Adapter
 
-This package provides a replayer adapter and interceptors for Temporal Node.js workflows. It enables debugging and replaying workflows with breakpoint support, following the same pattern as the Go and Python implementations.
+This package provides a replayer adapter and interceptors for Temporal workflows in Node.js. It enables debugging and replaying workflows with breakpoint support in both standalone and IDE-integrated modes.
 
 ## Features
 
-- **Workflow and Activity Interceptors**: Comprehensive interceptors for debugging workflow execution
-- **Breakpoint Support**: Set breakpoints for standalone mode or integrate with IDE debugger
-- **History Loading**: Load workflow history from JSON files or HTTP endpoints  
-- **Replay Modes**: Support for both standalone and IDE-integrated replay modes
-- **TypeScript Support**: Full TypeScript definitions included
+- **Standalone Mode**: Replay workflows from JSON history files with custom breakpoints
+- **IDE Integration Mode**: Connect to IDEs for interactive debugging
+- **Workflow Interceptors**: Automatically intercept workflow operations for debugging
+- **Activity Interceptors**: Intercept activity executions for comprehensive debugging
+- **Breakpoint Support**: Set breakpoints at specific workflow event IDs
 
 ## Installation
 
-### Option 1: Install from source (recommended for development)
-
 ```bash
-# Clone the repository and navigate to the replayer-adapter-nodejs directory
-cd replayer-adapter-nodejs
-
-# Install dependencies
-npm install
-
-# Build the package
-npm run build
-
-# Install locally
-npm link
+npm install @temporal/replayer-adapter-nodejs
 ```
 
-### Option 2: Install as a package
+## Quick Start
 
-```bash
-# Install using npm from the directory
-npm install ./replayer-adapter-nodejs
-```
-
-## Usage
-
-### Basic Usage (Standalone Mode)
+### Standalone Mode
 
 ```typescript
 import {
   ReplayMode,
-  ReplayOptions,
   setReplayMode,
   setBreakpoints,
   replay
 } from '@temporal/replayer-adapter-nodejs';
 
-// Set replay mode
+// IMPORTANT: Configure mode and breakpoints BEFORE calling replay()
 setReplayMode(ReplayMode.STANDALONE);
+setBreakpoints([1, 5, 10, 15]); // Set breakpoints at specific event IDs
 
-// Set breakpoints (for standalone mode)
-setBreakpoints([10, 25, 50]);
-
-// Create replay options
-const opts: ReplayOptions = {
-  historyFilePath: "/path/to/history.json",
+const options = {
+  historyFilePath: './workflow-history.json',
   workerReplayOptions: {
     workflowsPath: require.resolve('./workflows'),
   }
 };
 
-// Replay workflow
-await replay(opts, YourWorkflowClass);
+await replay(options, myWorkflow);
 ```
 
 ### IDE Integration Mode
@@ -71,186 +47,116 @@ await replay(opts, YourWorkflowClass);
 ```typescript
 import {
   ReplayMode,
-  ReplayOptions,
   setReplayMode,
   replay
 } from '@temporal/replayer-adapter-nodejs';
 
-// Set IDE mode
 setReplayMode(ReplayMode.IDE);
 
-// The adapter will automatically connect to the IDE debugger
-// via the WFDBG_HISTORY_PORT environment variable (default: 54578)
-const opts: ReplayOptions = {
+const options = {
   workerReplayOptions: {
     workflowsPath: require.resolve('./workflows'),
   }
 };
 
-// Replay workflow
-await replay(opts, YourWorkflowClass);
+// Set environment variable for IDE connection
+process.env.WFDBG_HISTORY_PORT = '54578';
+
+await replay(options, myWorkflow);
 ```
 
-### Using Interceptors Directly
+## Breakpoint Management
 
-The interceptors are automatically included when using the `replay` function, but you can also use them directly with a Temporal Worker:
+### Setting Breakpoints
+
+Breakpoints are set by event ID numbers that correspond to events in your workflow history:
 
 ```typescript
-import { Worker } from '@temporalio/worker';
-import { interceptors as workflowInterceptors } from '@temporal/replayer-adapter-nodejs/dist/workflow-interceptors';
-import { activityInterceptors } from '@temporal/replayer-adapter-nodejs/dist/activity-interceptors';
+import { setBreakpoints } from '@temporal/replayer-adapter-nodejs';
 
-const worker = Worker.create({
-  taskQueue: 'your-task-queue',
-  workflowsPath: require.resolve('./workflows'),
-  interceptors: {
-    workflowModules: [workflowInterceptors],
-    activity: [activityInterceptors],
-  },
-});
+// Set breakpoints at events 1, 5, 10, and 15
+setBreakpoints([1, 5, 10, 15]);
+
+// Update breakpoints (replaces previous ones)
+setBreakpoints([2, 4, 6, 8]);
+
+// Clear all breakpoints
+setBreakpoints([]);
 ```
 
+### Important Notes
+
+1. **Order Matters**: Always call `setReplayMode()` and `setBreakpoints()` BEFORE calling `replay()`
+2. **Event IDs**: Breakpoint numbers should correspond to actual event IDs in your workflow history
+3. **Standalone vs IDE**: In standalone mode, you manage breakpoints manually. In IDE mode, the IDE manages them
+4. **Empty by Default**: Breakpoints start empty - you must explicitly set them
+
 ## API Reference
-
-### Enums
-
-#### `ReplayMode`
-Enum for replay modes:
-- `STANDALONE`: Replay with local history file
-- `IDE`: Replay with IDE debugger integration
-
-### Interfaces
-
-#### `ReplayOptions`
-Configuration for replay:
-- `workerReplayOptions`: Temporal Worker replay options
-- `historyFilePath`: Path to history JSON file (standalone mode)
 
 ### Functions
 
 #### `setReplayMode(mode: ReplayMode)`
-Set the replay mode for the adapter.
+Set the replay mode (STANDALONE or IDE).
 
 #### `setBreakpoints(eventIds: number[])`
-Set breakpoints for standalone mode.
+Set breakpoints at specific workflow event IDs. Replaces any existing breakpoints.
 
-#### `replay(opts: ReplayOptions, workflow: any): Promise<void>`
-Main replay function that handles both modes.
+#### `replay(options: ReplayOptions, workflow: any): Promise<void>`
+Replay a workflow with the configured options and breakpoints.
 
-#### `replayWithHistory(opts: any, hist: any, workflow: any): Promise<void>`
-Replay workflow with history data.
+### Types
 
-#### `replayWithJsonFile(opts: any, workflow: any, jsonFileName: string): Promise<void>`
-Replay workflow with history from JSON file.
+#### `ReplayMode`
+- `STANDALONE`: Replay using local history file
+- `IDE`: Replay with IDE integration
 
-### Interceptors
+#### `ReplayOptions`
+```typescript
+interface ReplayOptions {
+  workerReplayOptions?: ReplayWorkerOptions;
+  historyFilePath?: string; // Required for STANDALONE mode
+}
+```
 
-#### `workflowInterceptors`
-Workflow interceptor factory for debugging support. Automatically injected when using the `replay` function.
+## Troubleshooting
 
-#### `activityInterceptors`
-Activity interceptor factory for debugging support. Automatically injected when using the `replay` function.
+### Breakpoints Not Working
 
-## Environment Variables
+If breakpoints aren't triggering, check:
 
-- `WFDBG_HISTORY_PORT`: Port for IDE debugger communication (default: 54578)
+1. **Configuration Order**: Ensure you call `setBreakpoints()` before `replay()`
+2. **Event IDs**: Verify the event IDs exist in your workflow history
+3. **Mode Setting**: Confirm you've set the correct replay mode
+4. **Console Output**: Look for breakpoint checking messages in the console
+
+### Example Console Output
+
+When working correctly, you should see output like:
+```
+Breakpoints updated to: [1, 5, 10, 15]
+Standalone checking breakpoints: [1, 5, 10, 15], eventId: 1
+✓ Hit breakpoint at eventId: 1
+```
+
+## Testing the Fix
+
+A test script is included to verify breakpoints work correctly:
+
+```bash
+npm run build
+node test-breakpoints.js
+```
+
+All tests should show "✓ PASS" if the breakpoint system is working correctly.
 
 ## Examples
 
-See the `example/` directory for complete examples of:
-- Standalone workflow replay with breakpoints
-- IDE-integrated workflow debugging
-
-### Basic Usage Example
-
-```typescript
-import {
-  ReplayMode,
-  ReplayOptions,
-  setReplayMode,
-  setBreakpoints,
-  replay
-} from '@temporal/replayer-adapter-nodejs';
-
-// Example workflow
-async function greetingWorkflow(name: string): Promise<string> {
-  return `Hello, ${name}!`;
-}
-
-async function main() {
-  // Standalone mode
-  setReplayMode(ReplayMode.STANDALONE);
-  setBreakpoints([1, 5, 10]);
-  
-  const standaloneOpts: ReplayOptions = {
-    historyFilePath: './example-history.json',
-    workerReplayOptions: {
-      workflowsPath: require.resolve('./workflows'),
-    }
-  };
-  
-  await replay(standaloneOpts, greetingWorkflow);
-  
-  // IDE mode
-  setReplayMode(ReplayMode.IDE);
-  const ideOpts: ReplayOptions = {
-    workerReplayOptions: {
-      workflowsPath: require.resolve('./workflows'),
-    }
-  };
-  
-  await replay(ideOpts, greetingWorkflow);
-}
-```
-
-## Architecture
-
-This replayer adapter follows the same architecture as the Go and Python implementations:
-
-1. **Core Functions**: Handle mode management, breakpoints, and replay orchestration
-2. **Interceptors**: Inject breakpoint detection into workflow and activity execution
-3. **HTTP Client**: Communicate with IDE debugger for breakpoint status and highlighting
-4. **History Loading**: Support loading from both JSON files and HTTP endpoints
-
-### Key Components
-
-- **`replayer.ts`**: Main replay logic and breakpoint handling
-- **`workflow-interceptors.ts`**: Workflow interceptors for debugging support
-- **`activity-interceptors.ts`**: Activity interceptors for debugging support
-- **`types.ts`**: Type definitions and state management
-- **`http-client.ts`**: HTTP communication with IDE debugger
-
-## Compatibility
-
-- Node.js 16.x or higher
-- Temporal TypeScript SDK 1.12.0 or higher
-- TypeScript 4.9.0 or higher
-
-## Development
-
-### Building
-
-```bash
-npm run build
-```
-
-### Development Mode
-
-```bash
-npm run dev
-```
-
-### Clean Build
-
-```bash
-npm run clean
-npm run build
-```
+See the `example/` directory for complete working examples of both standalone and IDE integration modes.
 
 ## Contributing
 
-This package follows the same patterns as the existing Go and Python replayer adapters. When making changes, ensure compatibility across all three implementations.
+Contributions are welcome! Please see the main repository for contribution guidelines.
 
 ## License
 
-MIT - See LICENSE file for details. 
+See the main repository for license information. 

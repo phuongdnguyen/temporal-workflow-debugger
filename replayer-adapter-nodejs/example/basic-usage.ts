@@ -19,11 +19,13 @@ async function main() {
   try {
     console.log('=== Standalone Mode Example ===');
     
-    // Set replay mode to standalone
+    // IMPORTANT: Set replay mode and breakpoints BEFORE calling replay()
     setReplayMode(ReplayMode.STANDALONE);
     
     // Set breakpoints at specific event IDs
+    // These should correspond to actual event IDs in your workflow history
     setBreakpoints([1, 5, 10]);
+    console.log('✓ Breakpoints configured for events: [1, 5, 10]');
     
     // Configure replay options
     const standaloneOpts: ReplayOptions = {
@@ -34,6 +36,7 @@ async function main() {
       }
     };
     
+    console.log('Starting replay with breakpoints...');
     // Replay the workflow
     await replay(standaloneOpts, greetingWorkflow);
     console.log('Standalone replay completed successfully');
@@ -48,6 +51,9 @@ async function main() {
     // Set replay mode to IDE integration
     setReplayMode(ReplayMode.IDE);
     
+    // In IDE mode, breakpoints are managed by the IDE, not set manually
+    console.log('✓ IDE mode configured - breakpoints will be managed by the IDE');
+    
     // Configure replay options (no history file needed for IDE mode)
     const ideOpts: ReplayOptions = {
       workerReplayOptions: {
@@ -57,6 +63,7 @@ async function main() {
     
     // Make sure WFDBG_HISTORY_PORT environment variable is set
     process.env.WFDBG_HISTORY_PORT = process.env.WFDBG_HISTORY_PORT || '54578';
+    console.log(`IDE will connect on port: ${process.env.WFDBG_HISTORY_PORT}`);
     
     // Replay the workflow (will connect to IDE on the specified port)
     await replay(ideOpts, greetingWorkflow);

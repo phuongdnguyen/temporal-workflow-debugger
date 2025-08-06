@@ -8,16 +8,12 @@
 
 ## Structure
 
-- custom-debugger/: Proxy for Delve.
-- jetbrains-plugin/: GoLand integration.
-- replayer-adapter/: Workflow replayer.
+- custom-debugger/: Intercept message from language debugger.
+- jetbrains-plugin/: GoLand Plugin.
+- replayer-adapter-go/: Inject sentinel breakpoint for Temporal Go SDK.
+- replayer-adapter-python/: Inject sentinel breakpoint for Temporal Python SDK.
+- replayer-adapter-nodejs/: Inject sentinel breakpoint for Temporal Typescript SDK.
 - example/: Test workflows.
-
-## Key Components
-
-- WfDebugRunState.java: Manages tdlv process.
-- WorkflowDebuggerPanel.java: UI for history and controls.
-- WfDebuggerService.java: State management.
 
 ## Testing
 

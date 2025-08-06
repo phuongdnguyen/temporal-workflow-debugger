@@ -1,0 +1,6 @@
+{
+    "temporal.replayerEntrypoint": "main.go",
+    "temporal.debugLanguage": "go",
+    "temporal.debugger.backgroundProcess.command": "make",
+    "temporal.debugger.backgroundProcess.args": ["tdlv", "lang=go"]
+}

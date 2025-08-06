@@ -1,6 +1,6 @@
-# Temporal GoLand Plugin
+# Temporal Workflow Debugger
 
-This plugin enables debugging of Temporal workflows in GoLand.
+This plugin enables debugging of Temporal workflows.
 
 ## Documentation
 
@@ -9,7 +9,6 @@ This plugin enables debugging of Temporal workflows in GoLand.
 - [Developer Guide](./developer-guide.md): For contributors.
 - [Troubleshooting](./troubleshooting.md): Common issues.
 - [CHANGELOG.md](./CHANGELOG.md): Release notes.
-- [Developer Changelog](./developer-changelog.md): Internal changes.
 
 ## Quick Start
 

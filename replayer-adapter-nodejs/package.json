@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp src/*.js dist/",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
     "prepare": "npm run build"

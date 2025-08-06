@@ -4,12 +4,12 @@ import (
 	"go.temporal.io/sdk/worker"
 
 	"example/pkg/workflows"
-	"replayer_adapter"
+	"replayer_adapter_go"
 )
 
 func main() {
-	replayer_adapter.SetReplayMode(replayer_adapter.ReplayModeStandalone)
-	err := replayer_adapter.Replay(replayer_adapter.ReplayOptions{
+	replayer_adapter_go.SetReplayMode(replayer_adapter_go.ReplayModeIde)
+	err := replayer_adapter_go.Replay(replayer_adapter_go.ReplayOptions{
 		WorkerReplayOptions: worker.WorkflowReplayerOptions{DisableDeadlockDetection: true},
 	}, workflows.ExampleWorkflow)
 	if err != nil {

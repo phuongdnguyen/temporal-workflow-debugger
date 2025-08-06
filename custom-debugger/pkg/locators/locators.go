@@ -23,7 +23,7 @@ func IsInAdapterCodeByPath(filePath string) bool {
 	}
 
 	// Check for adapter code patterns in the file path
-	return strings.Contains(filePath, "replayer-adapter/") ||
+	return strings.Contains(filePath, "replayer-adapter-go/") ||
 		strings.Contains(filePath, "replayer.go") ||
 		strings.Contains(filePath, "outbound_interceptor.go") ||
 		strings.Contains(filePath, "inbound_interceptor.go") ||
@@ -80,7 +80,7 @@ func IsUserCodeFile(filePath, workingDir string) bool {
 
 	// File is in working directory, but check if it's adapter/framework code
 	// Exclude known adapter/framework paths even if they're in working directory
-	if strings.Contains(filePath, "replayer-adapter/") ||
+	if strings.Contains(filePath, "replayer-adapter-go") ||
 		strings.Contains(filePath, "custom-debugger/") ||
 		strings.Contains(filePath, "replayer-adapter-python/") ||
 		strings.Contains(filePath, "replayer-adapter-nodejs/") ||

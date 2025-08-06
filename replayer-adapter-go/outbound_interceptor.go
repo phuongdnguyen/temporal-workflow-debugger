@@ -1,4 +1,4 @@
-package replayer_adapter
+package replayer_adapter_go
 
 import (
 	"context"

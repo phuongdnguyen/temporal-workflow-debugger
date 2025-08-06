@@ -6,10 +6,10 @@ toolchain go1.23.11
 
 require (
 	go.temporal.io/sdk v1.35.0
-	replayer_adapter v0.0.0-00010101000000-000000000000
+	replayer_adapter_go v0.0.0-00010101000000-000000000000
 )
 
-replace replayer_adapter => /Users/duyphuongnguyen/GolandProjects/temporal-goland-plugin/replayer-adapter
+replace replayer_adapter_go => /Users/duyphuongnguyen/GolandProjects/temporal-goland-plugin/replayer-adapter-go
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
