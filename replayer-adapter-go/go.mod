@@ -1,12 +1,10 @@
-module replayer_adapter
+module github.com/phuongdnguyen/temporal-goland-plugin/replayer-adapter-go
 
 go 1.23.0
 
 require (
-	github.com/bufbuild/connect-go v1.10.0
 	go.temporal.io/api v1.49.1
 	go.temporal.io/sdk v1.35.0
-	google.golang.org/protobuf v1.36.5
 )
 
 require (
@@ -30,5 +28,6 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20240827150818-7e3bb234dfed // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240827150818-7e3bb234dfed // indirect
 	google.golang.org/grpc v1.66.0 // indirect
+	google.golang.org/protobuf v1.36.5 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
