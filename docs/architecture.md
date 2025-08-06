@@ -8,7 +8,7 @@ The plugin consists of an IDE Debugging UI, service layer, and `tdlv` integratio
 
 - IDE Debugging UI: Panel for history upload and set breakpoints.
 - IDE Debugging Service: provide api for the Debugger to retrieve the uploaded history & breakpoints.
-- Debugger (`tdlv`): Communicates with language debugger (think Delve, Js-Debug, Debugpy) to intercept debugging event, if a breakpoint is hit, the Debugger notifies the IDE Debugging Service to highlight the event that has its breakpoint hit.
+- Debugger (`tdlv`): Communicates with language debugger (think Delve, Js-Debug, Debugpy) to intercept debugging event. If a breakpoint is hit, the Debugger notifies the IDE Debugging Service to highlight the event that has its breakpoint hit.
 - Adapter: Adapter places sentinel breakpoints inside Temporal workflow/activity interceptors.
 
 
