@@ -25,7 +25,7 @@ const goConfiguration = {
   type: "go",
   request: "attach",
   mode: "remote",
-  "port": 60000,
+  port: 60000,
   host: "127.0.0.1",
   apiVersion: 2,
   showLog: true,
@@ -42,9 +42,12 @@ const javaConfiguration = {
 
 const pythonConfiguration = {
   name: "Launch Program",
-  type: "python",
-  request: "launch",
-  program: "${workspaceFolder}",
+  type: "debugpy",
+  request: "attach",
+  connect: {
+    host: "localhost",
+    port: 60000,
+  },
   console: "integratedTerminal",
   internalConsoleOptions: "openOnSessionStart",
 } satisfies vscode.DebugConfiguration
