@@ -1,6 +1,8 @@
 import * as vscode from "vscode"
 import { supportsESM } from "./is-esm"
 
+
+
 type SupportedLanguage = "typescript" | "go" | "java" | "python"
 
 const nodeConfiguration = {
@@ -8,14 +10,9 @@ const nodeConfiguration = {
   type: "node",
   request: "launch",
   runtimeExecutable: "node",
-  skipFiles: [
-    "<node_internals>/**",
-    "**/node_modules/@temporalio/worker/src/**",
-    "**/node_modules/@temporalio/worker/lib/**",
-    "**/node_modules/@temporalio/common/src/**",
-    "**/node_modules/@temporalio/common/lib/**",
-    "**/node_modules/**/source-map/**",
-  ],
+  env: {
+    JS_DEBUG_USE_LOCAL_DAP_PORT: 60000
+  },
   internalConsoleOptions: "openOnSessionStart",
   pauseForSourceMap: true,
 } satisfies vscode.DebugConfiguration
@@ -63,6 +60,8 @@ export const getBaseConfiguration = async (): Promise<vscode.DebugConfiguration>
 
   switch (language) {
     case "typescript":
+      // Set the environment variable to force VS Code's JavaScript debugger to use local DAP port
+      process.env.JS_DEBUG_USE_LOCAL_DAP_PORT = "60000"
       const runtimeArgs = (await supportsESM())
         ? ["--loader=ts-node/esm"]
         : ["--nolazy", "-r", "ts-node/register/transpile-only"]
