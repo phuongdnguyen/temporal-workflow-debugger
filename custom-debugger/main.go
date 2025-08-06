@@ -165,9 +165,13 @@ func startDebugPy(stopCh <-chan struct{}, install bool) {
 	if install {
 		// Install debugpy
 	}
+	workingDir, err := os.Getwd()
+	if err != nil {
+		log.Fatal(fmt.Errorf("error getting working directory: %w", err))
+	}
 	ctx := context.Background()
-	cmd := exec.CommandContext(ctx, "python", "-m", "debugpy", "--listen", "2345", "--wait-for-client", "standalone_replay.py")
-	cmd.Dir = "example/python" // Set working directory to the Python example
+	cmd := exec.CommandContext(ctx, "python", "-m", "debugpy", "--listen", "2345", "--wait-for-client", "vscode-replay.py")
+	cmd.Dir = workingDir // Set working directory to the Python example
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	go func() {
