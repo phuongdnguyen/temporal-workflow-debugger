@@ -6,7 +6,6 @@ on:
       - 'v*'
     branches:
       - main
-      - publish-workflow
   workflow_dispatch:
     inputs:
       version:
