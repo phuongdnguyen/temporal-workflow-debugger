@@ -2,7 +2,6 @@ import * as vscode from "vscode"
 import { HistoryDebuggerPanel } from "./panel"
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  // const debugAdapterTrackerFactory: vscode.Disposable = registerDebugAdapterTrackerFactory()
   const openCommand: vscode.Disposable = vscode.commands.registerCommand(
     "temporal.debugger-extension.open-panel",
     async () => {
