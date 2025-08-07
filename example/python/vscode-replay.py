@@ -19,7 +19,7 @@ print("replayer_adapter_path", replayer_adapter_path)
 sys.path.insert(0, project_root)
 sys.path.insert(0, replayer_adapter_path)
 
-from replayer import (
+from replayer_adapter_python.replayer import (
             ReplayMode, ReplayOptions, set_replay_mode, 
             set_breakpoints, replay
         )
