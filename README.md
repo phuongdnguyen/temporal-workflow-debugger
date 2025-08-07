@@ -1,5 +1,3 @@
-# Debugger for Temporal Workflows 🐛
-
 <img src="docs/images/logo.svg" alt="Temporal Debugger Logo" width="500">
 
 ## Introduction
