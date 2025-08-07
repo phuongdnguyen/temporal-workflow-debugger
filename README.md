@@ -26,6 +26,8 @@ Whether you're debugging a complex workflow that's failing in production or just
 
 ### **Installation Options**
 
+Pre-requisite: install `tdlv` debugger from [Github Release](https://github.com/phuongdnguyen/temporal-workflow-debugger/releases/tag/tdlv-v0.0.1)
+
 **IDE Plugins:**
 Jetbrains (preview, Go support only): https://plugins.jetbrains.com/plugin/28127-temporal-workflow-debugger
 
