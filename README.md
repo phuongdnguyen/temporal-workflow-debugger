@@ -39,14 +39,9 @@ Whether you're debugging a complex workflow that's failing in production or just
 ### **Installation Options**
 
 **IDE Plugins:**
-Jetbrains (preview, Go support only)
+Jetbrains (preview, Go support only): https://plugins.jetbrains.com/plugin/28127-temporal-workflow-debugger
 
-<iframe width="245px" height="48px" src="https://plugins.jetbrains.com/embeddable/install/28127"></iframe>
-
-Vscode (Go, Python and JS)
-<a href="https://marketplace.visualstudio.com/items?itemName=phuongdnguyen.temporal-workflow-debugger" target="_blank">
-  <img src="https://img.shields.io/badge/VS%20Code%20Marketplace-Install-blue?style=for-the-badge&logo=visual-studio-code" alt="Install VS Code Extension">
-</a>
+Vscode (Go, Python and JS): https://marketplace.visualstudio.com/items?itemName=phuongdnguyen.temporal-workflow-debugger
 
 **Replayer Adapters for Temporal SDK Languages:**
 - [Go](https://pkg.go.dev/github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go)
