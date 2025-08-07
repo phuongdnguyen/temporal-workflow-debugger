@@ -39,7 +39,7 @@ Install the plugin from:
 - [Vscode marketplace](https://marketplace.visualstudio.com/items?itemName=phuongdnguyen.temporal-workflow-debugger&ssr=false#overview)
 
 - Replayer for Temporal SDK languages:
-    - [Go](#)
+    - [Go](https://pkg.go.dev/github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go)
     - [Python](https://pypi.org/project/temporal-replayer-adapter-python/)
     - [TS](https://www.npmjs.com/package/@phuongdnguyen/replayer-adapter-nodejs)
 
