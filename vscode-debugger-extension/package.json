@@ -82,10 +82,23 @@
           "default": [],
           "description": "Arguments to pass to the background process command.",
           "examples": [
-            ["run", "start"],
-            ["run", "main.go"],
-            ["run", "server.py"],
-            ["run", "-d", "my-container"]
+            [
+              "run",
+              "start"
+            ],
+            [
+              "run",
+              "main.go"
+            ],
+            [
+              "run",
+              "server.py"
+            ],
+            [
+              "run",
+              "-d",
+              "my-container"
+            ]
           ]
         },
         "temporal.debugger.backgroundProcess.options": {
@@ -166,7 +179,7 @@
     "vitest": "^1.6.0"
   },
   "engines": {
-    "vscode": "^1.77.3"
+    "vscode": "^1.89.0"
   },
   "icon": "logo.png"
 }

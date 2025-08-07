@@ -62,7 +62,7 @@ export class Server {
         const instance = await HistoryDebuggerPanel.instance
         const breakpoints = instance.getEnabledBreakpoints()
         res.status(200).json({
-          breakpoints: breakpoints
+          breakpoints: breakpoints,
         })
       } catch (error) {
         res.status(500).json({ error: `${error}` })
@@ -73,7 +73,7 @@ export class Server {
     return new this(server)
   }
 
-  constructor(protected readonly server: http.Server) { }
+  constructor(protected readonly server: http.Server) {}
 
   get url(): string {
     const addr = this.server.address()
