@@ -3,9 +3,7 @@ name: Publish Go Package
 on:
   push:
     tags:
-      - 'v*'
-    branches:
-      - main
+      - 'replayer-adapter-go-v*'
   workflow_dispatch:
     inputs:
       version:

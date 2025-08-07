@@ -3,9 +3,7 @@ name: Build and Release Tdlv
 on:
   push:
     tags:
-      - 'v*'
-    branches:
-      - main
+      - 'tdlv-v*'
   workflow_dispatch:
     inputs:
       version:

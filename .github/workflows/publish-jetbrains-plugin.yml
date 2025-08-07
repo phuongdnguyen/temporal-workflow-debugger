@@ -3,10 +3,7 @@ name: Publish JetBrains Plugin
 on:
   push:
     tags:
-      - 'v*'
-    branches:
-      - main
-      - publish-workflow
+      - 'jetbrains-plugin-v*'
   workflow_dispatch:
     inputs:
       version:
