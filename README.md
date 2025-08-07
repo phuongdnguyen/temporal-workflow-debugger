@@ -29,13 +29,64 @@ Whether you're debugging a complex workflow that's failing in production or just
 Pre-requisite: install `tdlv` debugger from [Github Release](https://github.com/phuongdnguyen/temporal-workflow-debugger/releases/tag/tdlv-v0.0.1)
 
 **IDE Plugins:**
-Jetbrains (preview, Go support only): https://plugins.jetbrains.com/plugin/28127-temporal-workflow-debugger
+Jetbrains (preview, Go support only): <a href="https://plugins.jetbrains.com/plugin/28127-temporal-workflow-debugger"><img src="https://img.shields.io/badge/Install%20from%20JetBrains%20Marketplace-000000?logo=jetbrains&logoColor=white" alt="Install from JetBrains Marketplace"></a>
 
-Vscode (Go, Python and JS): https://marketplace.visualstudio.com/items?itemName=phuongdnguyen.temporal-workflow-debugger
+Vscode (Go, Python and JS): <a href="https://marketplace.visualstudio.com/items?itemName=phuongdnguyen.temporal-workflow-debugger"><img src="https://img.shields.io/badge/Install%20from%20VS%20Code%20Marketplace-007ACC?logo=visual-studio-code&logoColor=white" alt="Install from VS Code Marketplace"></a>
 
 **Replayer Adapters for Temporal SDK Languages:**
 - [Go](https://pkg.go.dev/github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go)
 - [Python](https://pypi.org/project/temporal-replayer-adapter-python/)
 - [TypeScript](https://www.npmjs.com/package/@phuongdnguyen/replayer-adapter-nodejs)
 
+
+
+### Replay a workflow with the plugin/extension
+
+1) Load workflow history in the IDE
+- Open the Temporal Workflow Debugger view in your IDE (JetBrains or VS Code)
+- Load a Temporal workflow history file (`.json`)
+- The IDE starts a local server on `http://127.0.0.1:54578` that serves:
+  - `GET /history` (workflow history)
+  - `GET /breakpoints` (enabled breakpoints)
+  - `POST /current-event` (highlight current event)
+
+2) Run your adapter in IDE mode to replay
+- Go
+  ```go
+  import (
+      "go.temporal.io/sdk/worker"
+      replayeradapter "github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go"
+  )
+
+  func main() {
+      replayeradapter.SetReplayMode(replayeradapter.ReplayModeIde)
+      opts := replayeradapter.ReplayOptions{
+          WorkerReplayOptions: worker.WorkflowReplayerOptions{},
+      }
+      if err := replayeradapter.Replay(opts, YourWorkflow); err != nil { panic(err) }
+  }
+  ```
+
+- TypeScript/Node.js
+  ```ts
+  import { ReplayMode, replay } from '@phuongdnguyen/replayer-adapter-nodejs'
+
+  await replay({
+    mode: ReplayMode.IDE,
+    workerReplayOptions: { workflowsPath: require.resolve('./workflows') }
+  }, yourWorkflow)
+  ```
+
+- Python
+  ```python
+  from replayer_adapter_python import *
+
+  set_replay_mode(ReplayMode.IDE)
+  opts = ReplayOptions()
+  replay(opts, YourWorkflowClass)
+  ```
+
+3) Debug
+- Set breakpoints in the IDE history view
+- Start your adapter code. It will fetch history/breakpoints from the IDE and pause on hits
 
