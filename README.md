@@ -10,6 +10,18 @@ Debugging Temporal workflows has traditionally been challenging. Execution of a 
 
 This debugger solves these challenges by leveraging the **workflow replayer** - it reconstructs workflow execution from Temporal's event history, allowing you to debug exactly what happened during the original execution.
 
+## Installation
+
+### **JetBrains Plugin (GoLand)**
+<script src="https://plugins.jetbrains.com/assets/scripts/mp-widget.js"></script>
+<script>
+  MarketplaceWidget.setupMarketplaceWidget('install', 28127, "#jetbrains-install-button");
+</script>
+<div id="jetbrains-install-button"></div>
+
+### **VS Code Extension**
+- [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=phuongdnguyen.temporal-workflow-debugger&ssr=false#overview)
+
 ## Key Features
 
 ### **Seamless IDE Integration**
@@ -35,7 +47,15 @@ Currently available for Go users on GoLand: install the plugin and debug your wo
 ### **Installation Options**
 
 **IDE Plugins:**
-- [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/28127-temporal-workflow-debugger)
+
+**JetBrains Plugin:**
+<script src="https://plugins.jetbrains.com/assets/scripts/mp-widget.js"></script>
+<script>
+  MarketplaceWidget.setupMarketplaceWidget('install', 28127, "#jetbrains-install-button");
+</script>
+<div id="jetbrains-install-button"></div>
+
+**VS Code Extension:**
 - [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=phuongdnguyen.temporal-workflow-debugger&ssr=false#overview)
 
 **Replayer Adapters for Temporal SDK Languages:**
