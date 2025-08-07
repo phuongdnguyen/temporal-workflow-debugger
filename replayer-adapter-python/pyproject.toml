@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "temporal-replayer-adapter-python"
-version = "0.1.0"
+version = "0.0.1"
 description = "Python Replayer Adapter for Temporal workflows with debugging capabilities"
 authors = [
     {name = "Duy Phuong Nguyen", email = "knowledge.phuongnguyen@gmail.com"}
