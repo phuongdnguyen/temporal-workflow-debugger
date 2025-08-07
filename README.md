@@ -47,16 +47,13 @@ Currently available for Go users on GoLand: install the plugin and debug your wo
 ### **Installation Options**
 
 **IDE Plugins:**
+Jetbrains (preview, Go support only)
+<iframe width="245px" height="48px" src="https://plugins.jetbrains.com/embeddable/install/28127"></iframe>
 
-**JetBrains Plugin:**
-<script src="https://plugins.jetbrains.com/assets/scripts/mp-widget.js"></script>
-<script>
-  MarketplaceWidget.setupMarketplaceWidget('install', 28127, "#jetbrains-install-button");
-</script>
-<div id="jetbrains-install-button"></div>
-
-**VS Code Extension:**
-- [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=phuongdnguyen.temporal-workflow-debugger&ssr=false#overview)
+Vscode (Go, Python and JS)
+<a href="https://marketplace.visualstudio.com/items?itemName=phuongdnguyen.temporal-workflow-debugger" target="_blank">
+  <img src="https://img.shields.io/badge/VS%20Code%20Marketplace-Install-blue?style=for-the-badge&logo=visual-studio-code" alt="Install VS Code Extension">
+</a>
 
 **Replayer Adapters for Temporal SDK Languages:**
 - [Go](https://pkg.go.dev/github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go)
