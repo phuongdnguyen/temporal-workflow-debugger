@@ -1,0 +1,78 @@
+name: Publish VS Code Extension
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 1.0.0)'
+        required: true
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: vscode-debugger-extension/package-lock.json
+          
+      - name: Install dependencies
+        run: |
+          cd vscode-debugger-extension
+          npm ci
+          
+      - name: Run linting
+        run: |
+          cd vscode-debugger-extension
+          npm run lint
+          
+      - name: Run tests
+        run: |
+          cd vscode-debugger-extension
+          npm test
+          
+      - name: Build extension
+        run: |
+          cd vscode-debugger-extension
+          npm run build
+          
+      - name: Package extension
+        run: |
+          cd vscode-debugger-extension
+          npx vsce package
+          
+      - name: Publish to VS Code Marketplace
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        run: |
+          cd vscode-debugger-extension
+          npx vsce publish --pat ${{ secrets.VSCE_PAT }}
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          
+      - name: Publish to VS Code Marketplace (Manual)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          cd vscode-debugger-extension
+          # Update version in package.json
+          npm version ${{ github.event.inputs.version }} --no-git-tag-version
+          npx vsce publish --pat ${{ secrets.VSCE_PAT }}
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          
+      - name: Upload extension package
+        uses: actions/upload-artifact@v4
+        with:
+          name: temporalio-extension
+          path: vscode-debugger-extension/*.vsix 

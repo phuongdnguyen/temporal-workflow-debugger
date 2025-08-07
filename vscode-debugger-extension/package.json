@@ -1,6 +1,6 @@
 {
-  "name": "temporalio",
-  "displayName": "Temporal.io",
+  "name": "temporal-workflow-debugger",
+  "displayName": "Temporal workflow debugger",
   "version": "0.1.2",
   "description": "Debug workflows by their ID or history file. Set breakpoints in code or on history events.",
   "categories": [
@@ -15,10 +15,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/temporalio/vscode-debugger-extension"
+    "url": "https://github.com/phuongdnguyen/temporal-workflow-debugger/vscode-debugger-extension"
   },
   "license": "MIT",
-  "publisher": "temporal-technologies",
+  "publisher": "phuongdnguyen",
   "main": "./extension/dist/extension.js",
   "scripts": {
     "build": "concurrently \"npm run build.extension\" \"npm run build.webview\"",
