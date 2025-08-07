@@ -57,7 +57,7 @@ jobs:
           path: jetbrains-plugin/build/distributions/*.zip
           
       - name: Publish to JetBrains Marketplace
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/jetbrains-plugin-v')
         run: |
           cd jetbrains-plugin
           ./gradlew publishPlugin

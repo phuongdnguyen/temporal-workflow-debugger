@@ -53,7 +53,7 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'true')
+    if: startsWith(github.ref, 'refs/tags/tdlv-v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'true')
     
     steps:
       - name: Checkout code
