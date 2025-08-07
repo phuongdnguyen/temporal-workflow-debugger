@@ -3,7 +3,7 @@ package main
 import (
 	"go.temporal.io/sdk/worker"
 
-	"replayer_adapter_go"
+	"github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go"
 )
 
 func main() {

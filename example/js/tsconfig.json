@@ -16,9 +16,6 @@
     "inlineSourceMap": false,
     "inlineSources": false,
     "baseUrl": "./",
-    "paths": {
-      "@temporal/replayer-adapter-nodejs": ["../../replayer-adapter-nodejs/src"]
-    }
   },
   "include": [
     "*.ts"

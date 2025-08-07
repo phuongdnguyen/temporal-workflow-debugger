@@ -6,10 +6,8 @@ toolchain go1.23.11
 
 require (
 	go.temporal.io/sdk v1.35.0
-	replayer_adapter_go v0.0.0-00010101000000-000000000000
 )
 
-replace replayer_adapter_go => /Users/duyphuongnguyen/GolandProjects/temporal-goland-plugin/replayer-adapter-go
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -20,6 +18,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.22.0 // indirect
 	github.com/nexus-rpc/sdk-go v0.3.0 // indirect
+	github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go v0.0.0-20250807111630-9bea48215350 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/robfig/cron v1.2.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect

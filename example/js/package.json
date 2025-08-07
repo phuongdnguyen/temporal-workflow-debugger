@@ -12,17 +12,18 @@
     "debug:replay": "node --inspect-brk=127.0.0.1:9229 -r ts-node/register ./main.ts replay"
   },
   "dependencies": {
-    "@temporalio/client": "^1.12.0",
-    "@temporalio/worker": "^1.12.0",
-    "@temporalio/workflow": "^1.12.0",
+    "@phuongdnguyen/replayer-adapter-nodejs": "^0.0.1",
     "@temporalio/activity": "^1.12.0",
+    "@temporalio/client": "^1.12.0",
     "@temporalio/common": "^1.12.0",
-    "@temporalio/proto": "^1.12.0"
+    "@temporalio/proto": "^1.12.0",
+    "@temporalio/worker": "^1.12.0",
+    "@temporalio/workflow": "^1.12.0"
   },
   "devDependencies": {
-    "typescript": "^4.9.0",
+    "@temporal/replayer-adapter-nodejs": "file:../../replayer-adapter-nodejs",
     "@types/node": "^18.0.0",
     "ts-node": "^10.9.0",
-    "@temporal/replayer-adapter-nodejs": "file:../../replayer-adapter-nodejs"
+    "typescript": "^4.9.0"
   }
-} 
+}

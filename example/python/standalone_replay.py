@@ -10,16 +10,9 @@ Make sure this file exists in the current directory before running the examples.
 import asyncio
 import json
 import os
-import sys
 
-# Add paths to Python path for imports
-project_root = os.path.join(os.path.dirname(__file__), '..', '..')
-replayer_adapter_path = os.path.join(project_root, 'replayer-adapter-python')
-print("replayer_adapter_path", replayer_adapter_path)
-sys.path.insert(0, project_root)
-sys.path.insert(0, replayer_adapter_path)
 
-from replayer import (
+from replayer_adapter_python import (
             ReplayMode, ReplayOptions, set_replay_mode, 
             set_breakpoints, replay
         )

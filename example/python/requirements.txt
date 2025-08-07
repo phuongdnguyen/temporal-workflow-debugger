@@ -1,2 +1,3 @@
 temporalio==1.15.0
 requests 
+temporal-replayer-adapter-python

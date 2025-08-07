@@ -1,7 +1,7 @@
 import {
     exampleWorkflow,
 } from './workflow';
-import { ReplayMode, replay } from '@temporal/replayer-adapter-nodejs';
+import { ReplayMode, replay } from '@phuongdnguyen/replayer-adapter-nodejs';
 
 // ====================
 // MAIN EXECUTION

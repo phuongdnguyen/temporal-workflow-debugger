@@ -226,3 +226,4 @@ npm-debug.log
 js-debug
 _JETBRAINS_PLUGIN_README.md
 _VSCODE_EXTENSION_README.md
+.log*

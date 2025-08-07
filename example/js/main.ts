@@ -8,7 +8,7 @@ import {
   completeWorkflowSignal,
   getCurrentStatusQuery,
 } from './workflow';
-import { ReplayMode, replay } from '@temporal/replayer-adapter-nodejs';
+import { ReplayMode, replay } from '@phuongdnguyen/replayer-adapter-nodejs';
 
 // ====================
 // WORKER
