@@ -36,18 +36,11 @@ Whether you're debugging a complex workflow that's failing in production or just
 
 ## Usage
 
-You can run the debugger in two modes:
-
-### **Standalone Mode** 
-Run the debugger with your workflow code and connect your IDE to it. This approach is lower-level and not recommended for end users. To install the debugger, download it from the [GitHub Release Page](https://github.com/phuongdnguyen/temporal-workflow-debugger/releases).
-
-### **IDE Integrated Mode** (Recommended)
-Currently available for Go users on GoLand: install the plugin and debug your workflow via a debugging UI. This approach provides a more complete debugging experience and is the recommended approach.
-
 ### **Installation Options**
 
 **IDE Plugins:**
 Jetbrains (preview, Go support only)
+
 <iframe width="245px" height="48px" src="https://plugins.jetbrains.com/embeddable/install/28127"></iframe>
 
 Vscode (Go, Python and JS)
