@@ -1,0 +1,86 @@
+name: Publish JetBrains Plugin
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - main
+      - publish-workflow
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Plugin version to publish (e.g., 1.0.0)'
+        required: true
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'gradle'
+          
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+        with:
+          gradle-home-cache-cleanup: true
+          
+      - name: Build plugin
+        run: |
+          cd jetbrains-plugin
+          ./gradlew build
+          
+      - name: Run tests
+        run: |
+          cd jetbrains-plugin
+          ./gradlew test
+          
+      - name: Create plugin package
+        run: |
+          cd jetbrains-plugin
+          ./gradlew buildPlugin
+        env:
+          CERTIFICATE_CHAIN: ${{ secrets.CERTIFICATE_CHAIN }}
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          PRIVATE_KEY_PASSWORD: ${{ secrets.PRIVATE_KEY_PASSWORD }}
+          
+      - name: Upload plugin artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: temporal-workflow-debugger-plugin
+          path: jetbrains-plugin/build/distributions/*.zip
+          
+      - name: Publish to JetBrains Marketplace
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          cd jetbrains-plugin
+          ./gradlew publishPlugin
+        env:
+          PUBLISH_TOKEN: ${{ secrets.JETBRAINS_PUBLISH_TOKEN }}
+          CERTIFICATE_CHAIN: ${{ secrets.CERTIFICATE_CHAIN }}
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          PRIVATE_KEY_PASSWORD: ${{ secrets.PRIVATE_KEY_PASSWORD }}
+          
+      - name: Manual publish to JetBrains Marketplace
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          cd jetbrains-plugin
+          # Update version in build.gradle.kts if provided
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            sed -i "s/version = \".*\"/version = \"${{ github.event.inputs.version }}\"/" build.gradle.kts
+          fi
+          ./gradlew publishPlugin
+        env:
+          PUBLISH_TOKEN: ${{ secrets.JETBRAINS_PUBLISH_TOKEN }}
+          CERTIFICATE_CHAIN: ${{ secrets.CERTIFICATE_CHAIN }}
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          PRIVATE_KEY_PASSWORD: ${{ secrets.PRIVATE_KEY_PASSWORD }} 
