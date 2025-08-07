@@ -25,6 +25,7 @@ jobs:
           node-version: '18'
           cache: 'npm'
           cache-dependency-path: replayer-adapter-nodejs/package-lock.json
+          registry-url: 'https://registry.npmjs.org'
           
       - name: Install dependencies
         run: |
@@ -54,24 +55,22 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/replayer-adapter-nodejs-v')
         run: |
           cd replayer-adapter-nodejs
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > .npmrc
           npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Manual publish to NPM
         if: github.event_name == 'workflow_dispatch'
         run: |
           cd replayer-adapter-nodejs
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > .npmrc
           # Update version in package.json if provided
           if [ -n "${{ github.event.inputs.version }}" ]; then
             npm version ${{ github.event.inputs.version }} --no-git-tag-version
           fi
           npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/replayer-adapter-nodejs-v')
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
