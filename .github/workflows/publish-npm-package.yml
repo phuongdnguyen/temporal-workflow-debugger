@@ -1,0 +1,93 @@
+name: Publish NPM Package
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Package version to publish (e.g., 1.0.0)'
+        required: true
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: replayer-adapter-nodejs/package-lock.json
+          
+      - name: Install dependencies
+        run: |
+          cd replayer-adapter-nodejs
+          npm ci
+          
+      - name: Build package
+        run: |
+          cd replayer-adapter-nodejs
+          npm run build
+          
+      - name: Run tests (if available)
+        run: |
+          cd replayer-adapter-nodejs
+          npm test
+        continue-on-error: true
+          
+      # - name: Publish to NPM
+      #   if: startsWith(github.ref, 'refs/tags/v')
+      #   run: |
+      #     cd replayer-adapter-nodejs
+      #     npm publish --access public
+      #   env:
+      #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          
+      - name: Private publish to NPM
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          cd replayer-adapter-nodejs
+          npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Manual publish to NPM
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          cd replayer-adapter-nodejs
+          # Update version in package.json if provided
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            npm version ${{ github.event.inputs.version }} --no-git-tag-version
+          fi
+          npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: |
+            ## Changes in this release
+            
+            This release includes updates to the Temporal Workflow Debugger Node.js replayer adapter.
+            
+            ### Package: @phuongdnguyen/replayer-adapter-nodejs
+            
+            - Version: ${{ github.ref_name }}
+            - Built from commit: ${{ github.sha }}
+          draft: false
+          prerelease: false 
