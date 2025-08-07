@@ -491,9 +491,9 @@ export class HistoryDebuggerPanel {
     })
   }
 
-  private async getReplayerEndpoint() {
+  private async getTypescriptReplayerEndpoint() {
     const config = vscode.workspace.getConfiguration("temporal")
-    let replayerEntrypoint = config.get("replayerEntrypoint") as string
+    let typeScriptReplayerEntrypoint = config.get("typeScriptReplayerEntrypoint") as string
     const language = getCurrentLanguage()
     const workspace = vscode.workspace.workspaceFolders?.[0]
     const workspaceFolder = workspace?.uri
@@ -501,26 +501,16 @@ export class HistoryDebuggerPanel {
     // Debug logging
     console.log("Debug configuration:")
     console.log("- Language:", language)
-    console.log("- Configured replayerEntrypoint:", replayerEntrypoint)
     console.log("- Workspace folder:", workspaceFolder?.fsPath)
     console.log("- All temporal config:", config)
 
-    const configuredAbsolutePath = path.isAbsolute(replayerEntrypoint)
+    const configuredAbsolutePath = path.isAbsolute(typeScriptReplayerEntrypoint)
 
     // Provide language-specific defaults if not configured
-    if (!replayerEntrypoint) {
+    if (!typeScriptReplayerEntrypoint) {
       switch (language) {
         case "typescript":
-          replayerEntrypoint = "src/debug-replayer.ts"
-          break
-        case "go":
-          replayerEntrypoint = "." // Use current directory for Go package
-          break
-        case "java":
-          replayerEntrypoint = "src/main/java/TemporalReplayer.java"
-          break
-        case "python":
-          replayerEntrypoint = "replayer.py"
+          typeScriptReplayerEntrypoint = "src/debug-replayer.ts"
           break
         default:
           throw new Error(`No default replayer endpoint for language: ${language}`)
@@ -531,36 +521,36 @@ export class HistoryDebuggerPanel {
       if (workspaceFolder === undefined) {
         throw new Error("temporal.replayerEndpoint not configured, cannot use default without a workspace folder")
       } else {
-        replayerEntrypoint = vscode.Uri.joinPath(workspaceFolder, replayerEntrypoint).fsPath
+        typeScriptReplayerEntrypoint = vscode.Uri.joinPath(workspaceFolder, typeScriptReplayerEntrypoint).fsPath
       }
     }
 
     try {
-      const stat: vscode.FileStat = await vscode.workspace.fs.stat(vscode.Uri.file(replayerEntrypoint))
+      const stat: vscode.FileStat = await vscode.workspace.fs.stat(vscode.Uri.file(typeScriptReplayerEntrypoint))
       const { type } = stat
       if (type === vscode.FileType.Directory) {
         throw new Error(
-          `Configured temporal.replayerEndpoint (${replayerEntrypoint}) is a folder, please provide a file instead`,
+          `Configured temporal.replayerEndpoint (${typeScriptReplayerEntrypoint}) is a folder, please provide a file instead`,
         )
       }
       if (type === vscode.FileType.Unknown) {
         throw new Error(
-          `Configured temporal.replayerEndpoint (${replayerEntrypoint}) is of unknown type, please provide a file instead`,
+          `Configured temporal.replayerEndpoint (${typeScriptReplayerEntrypoint}) is of unknown type, please provide a file instead`,
         )
       }
     } catch (err: any) {
       if (err?.code === vscode.FileSystemError.FileNotFound.name) {
         if (!configuredAbsolutePath && (vscode.workspace.workspaceFolders?.length ?? 0) > 1) {
           throw new Error(
-            `Configured temporal.replayerEndpoint (${replayerEntrypoint}) not found (multiple workspace folders found, consider using an absolute path to disambiguate)`,
+            `Configured temporal.replayerEndpoint (${typeScriptReplayerEntrypoint}) not found (multiple workspace folders found, consider using an absolute path to disambiguate)`,
           )
         }
-        throw new Error(`Configured temporal.replayerEndpoint (${replayerEntrypoint}) not found`)
+        throw new Error(`Configured temporal.replayerEndpoint (${typeScriptReplayerEntrypoint}) not found`)
       }
       throw err
     }
 
-    return replayerEntrypoint
+    return typeScriptReplayerEntrypoint
   }
 
   private getLanguageRequirements(language: string): string {
@@ -599,7 +589,6 @@ export class HistoryDebuggerPanel {
     // Still send protobuf bytes to webview for UI processing
     const bytes = new Uint8Array(temporal.api.history.v1.History.encode(history).finish())
     const workspace = vscode.workspace.workspaceFolders?.[0]
-    const replayerEndpoint = await this.getReplayerEndpoint()
     const language = getCurrentLanguage()
 
     await this.panel.webview.postMessage({ type: "historyProcessed", history: bytes })
@@ -639,6 +628,7 @@ export class HistoryDebuggerPanel {
 
     switch (language) {
       case "typescript":
+        const typescriptReplayerEndpoint = await this.getTypescriptReplayerEndpoint()
         // TypeScript-specific configuration
         if (process.env.TEMPORAL_DEBUGGER_EXTENSION_DEV_MODE) {
           baseConfig.skipFiles?.push("${workspaceFolder}/packages/worker/src/**")
@@ -648,7 +638,7 @@ export class HistoryDebuggerPanel {
         const pathPrefix = process.env.NODE_PATH ? `${process.env.NODE_PATH ?? ""}${delim}` : ""
         debugConfig = {
           ...baseConfig,
-          args: [replayerEndpoint],
+          args: [typescriptReplayerEndpoint],
           env: {
             TEMPORAL_DEBUGGER_PLUGIN_URL: this.server.url,
             NODE_PATH: `${pathPrefix}${path.join(__dirname, "../../node_modules")}`,
@@ -657,20 +647,8 @@ export class HistoryDebuggerPanel {
         break
 
       case "go":
-        // For Go, ensure we have a valid program path
-        let goProgram = replayerEndpoint
-        if (goProgram.endsWith(".go")) {
-          // If it's a .go file, use it directly
-          goProgram = replayerEndpoint
-        } else {
-          // If it's a directory, use the directory path
-          goProgram = path.dirname(replayerEndpoint)
-        }
-        console.log("Go program path:", goProgram)
-
         debugConfig = {
           ...baseConfig,
-          program: goProgram,
           env: {
             TEMPORAL_DEBUGGER_PLUGIN_URL: this.server.url,
           },
@@ -680,7 +658,6 @@ export class HistoryDebuggerPanel {
       case "java":
         debugConfig = {
           ...baseConfig,
-          args: [replayerEndpoint],
           env: {
             TEMPORAL_DEBUGGER_PLUGIN_URL: this.server.url,
           },
@@ -690,7 +667,6 @@ export class HistoryDebuggerPanel {
       case "python":
         debugConfig = {
           ...baseConfig,
-          args: [replayerEndpoint],
           env: {
             TEMPORAL_DEBUGGER_PLUGIN_URL: this.server.url,
           },

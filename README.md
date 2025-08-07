@@ -36,27 +36,12 @@ Whether you're debugging a complex workflow that's failing in production or just
 
 ## Usage
 
-You can run the debugger in two modes:
-
-### **Standalone Mode** 
-Run the debugger with your workflow code and connect your IDE to it. This approach is lower-level and not recommended for end users. To install the debugger, download it from the [GitHub Release Page](https://github.com/phuongdnguyen/temporal-workflow-debugger/releases).
-
-### **IDE Integrated Mode** (Recommended)
-Currently available for Go users on GoLand: install the plugin and debug your workflow via a debugging UI. This approach provides a more complete debugging experience and is the recommended approach.
-
 ### **Installation Options**
 
 **IDE Plugins:**
+Jetbrains (preview, Go support only): https://plugins.jetbrains.com/plugin/28127-temporal-workflow-debugger
 
-**JetBrains Plugin:**
-<script src="https://plugins.jetbrains.com/assets/scripts/mp-widget.js"></script>
-<script>
-  MarketplaceWidget.setupMarketplaceWidget('install', 28127, "#jetbrains-install-button");
-</script>
-<div id="jetbrains-install-button"></div>
-
-**VS Code Extension:**
-- [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=phuongdnguyen.temporal-workflow-debugger&ssr=false#overview)
+Vscode (Go, Python and JS): https://marketplace.visualstudio.com/items?itemName=phuongdnguyen.temporal-workflow-debugger
 
 **Replayer Adapters for Temporal SDK Languages:**
 - [Go](https://pkg.go.dev/github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go)

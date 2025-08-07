@@ -42,7 +42,7 @@
     "configuration": {
       "title": "Temporal debugger",
       "properties": {
-        "temporal.replayerEntrypoint": {
+        "temporal.typeScriptReplayerEntrypoint": {
           "type": "string",
           "default": "src/debug-replayer.ts",
           "description": "Specifies which file will be used to start a replayer process."
