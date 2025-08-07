@@ -34,6 +34,13 @@ You can run the debugger in:
 - IDE Integrated (only available for Go users on Goland): install the plugin and debug your workflow via a debugging UI. This approach provides a more complete debugging experience and is the recommended approach.
 
 Install the plugin from:
-- [Jetbrains marketplace](https://plugins.jetbrains.com/search?excludeTags=internal&products=androidstudio&products=aqua&products=clion&products=dataspell&products=dbe&products=fleet&products=go&products=idea&products=idea_ce&products=mps&products=phpstorm&products=pycharm&products=rider&products=ruby&products=rust&products=webstorm&products=writerside&search=Temporal%20workflow%20debugger)
+- [Jetbrains marketplace](https://plugins.jetbrains.com/plugin/28127-temporal-workflow-debugger)
 
-- [Vscode marketplace]()
+- [Vscode marketplace](https://marketplace.visualstudio.com/items?itemName=phuongdnguyen.temporal-workflow-debugger&ssr=false#overview)
+
+- Replayer for Temporal SDK languages:
+    - [Go](#)
+    - [Python](https://pypi.org/project/temporal-replayer-adapter-python/)
+    - [TS](https://www.npmjs.com/package/@phuongdnguyen/replayer-adapter-nodejs)
+
+

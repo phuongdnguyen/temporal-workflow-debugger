@@ -39,7 +39,7 @@ tasks {
     }
 
     patchPluginXml {
-        sinceBuild.set("241")
+        sinceBuild.set("243")
         untilBuild.set("243.*")  // Support newer IDE versions including 2024.3 and beyond
     }
 
