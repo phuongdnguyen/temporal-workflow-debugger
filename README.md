@@ -1,4 +1,4 @@
-<img src="docs/images/logo.svg" alt="Temporal Debugger Logo" width="850">
+<img src="docs/images/logo.svg" alt="Temporal Debugger Logo" width="700">
 
 ## Introduction
 
