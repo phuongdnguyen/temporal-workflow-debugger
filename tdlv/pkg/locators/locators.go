@@ -81,7 +81,7 @@ func IsUserCodeFile(filePath, workingDir string) bool {
 	// File is in working directory, but check if it's adapter/framework code
 	// Exclude known adapter/framework paths even if they're in working directory
 	if strings.Contains(filePath, "replayer-adapter-go") ||
-		strings.Contains(filePath, "custom-debugger/") ||
+		strings.Contains(filePath, "tdlv/") ||
 		strings.Contains(filePath, "replayer-adapter-python/") ||
 		strings.Contains(filePath, "replayer-adapter-nodejs/") ||
 		strings.Contains(filePath, "vendor/") ||

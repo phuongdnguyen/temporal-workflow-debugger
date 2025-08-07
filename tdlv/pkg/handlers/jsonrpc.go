@@ -11,8 +11,8 @@ import (
 
 	"github.com/go-delve/delve/service/rpc2"
 
-	delve_jsonrpc "custom-debugger/pkg/json-rpc-interceptors"
-	"custom-debugger/pkg/utils"
+	delve_jsonrpc "tdlv/pkg/json-rpc-interceptors"
+	"tdlv/pkg/utils"
 )
 
 // jsonRPCHandler retains all previous logic but uses the buffered reader for the client side.

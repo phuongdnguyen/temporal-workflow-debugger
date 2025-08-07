@@ -12,10 +12,10 @@ import (
 	"github.com/go-delve/delve/service/rpc2"
 	"github.com/google/go-dap"
 
-	"custom-debugger/pkg/dap-client"
-	"custom-debugger/pkg/extractors"
-	"custom-debugger/pkg/locators"
-	"custom-debugger/pkg/utils"
+	dap_client "tdlv/pkg/dap-client"
+	"tdlv/pkg/extractors"
+	"tdlv/pkg/locators"
+	"tdlv/pkg/utils"
 )
 
 type ResponseInterceptingReader struct {

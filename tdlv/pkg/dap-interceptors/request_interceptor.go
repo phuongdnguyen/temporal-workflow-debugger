@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 
-	"custom-debugger/pkg/extractors"
+	"tdlv/pkg/extractors"
 )
 
 type RequestInterceptingReader struct {

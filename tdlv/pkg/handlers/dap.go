@@ -8,9 +8,9 @@ import (
 	"net"
 	"time"
 
-	"custom-debugger/pkg/dap-client"
-	dapinterceptors "custom-debugger/pkg/dap-interceptors"
-	"custom-debugger/pkg/utils"
+	dap_client "tdlv/pkg/dap-client"
+	dapinterceptors "tdlv/pkg/dap-interceptors"
+	"tdlv/pkg/utils"
 )
 
 // dapHandler proxies DAP traffic transparently between the client and Debugger.

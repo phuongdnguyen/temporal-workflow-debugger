@@ -1,4 +1,4 @@
-name: Build and Release Custom Debugger
+name: Build and Release Tdlv
 
 on:
   push:
@@ -42,16 +42,16 @@ jobs:
           go-version: '1.23'
           cache: true
           
-      - name: Build custom-debugger
+      - name: Build tdlv
         run: |
-          cd custom-debugger
+          cd tdlv
           GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o tdlv-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }} .
           
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: tdlv-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: custom-debugger/tdlv-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }}
+          path: tdlv/tdlv-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }}
           
   release:
     needs: build

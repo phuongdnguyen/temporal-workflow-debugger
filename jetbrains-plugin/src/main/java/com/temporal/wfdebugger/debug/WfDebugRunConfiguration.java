@@ -66,7 +66,7 @@ public class WfDebugRunConfiguration extends RunConfigurationBase<WfDebugRunStat
 
     private boolean isWfDebuggerProject(File dir) {
         return new File(dir, "Makefile").exists() &&
-                new File(dir, "custom-debugger").exists() &&
+                new File(dir, "tdlv").exists() &&
                 new File(dir, "my-wf").exists();
     }
 
@@ -89,7 +89,7 @@ public class WfDebugRunConfiguration extends RunConfigurationBase<WfDebugRunStat
         // Check if we can find the wf-debugger project structure
         if (!findWfDebuggerRoot(workingDir)) {
             throw new RuntimeConfigurationWarning(
-                    "Could not find wf-debugger project structure (Makefile, custom-debugger, my-wf) " +
+                    "Could not find wf-debugger project structure (Makefile, tdlv, my-wf) " +
                             "in or above the working directory. Make sure the working directory is within a wf-debugger project.");
         }
     }

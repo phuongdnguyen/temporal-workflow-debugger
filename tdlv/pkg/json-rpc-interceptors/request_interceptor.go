@@ -7,8 +7,8 @@ import (
 	"log"
 	"sync"
 
-	"custom-debugger/pkg/extractors"
-	"custom-debugger/pkg/utils"
+	"tdlv/pkg/extractors"
+	"tdlv/pkg/utils"
 )
 
 // RequestInterceptingReader wraps a reader and tracks JSON-RPC requests from client -> delve

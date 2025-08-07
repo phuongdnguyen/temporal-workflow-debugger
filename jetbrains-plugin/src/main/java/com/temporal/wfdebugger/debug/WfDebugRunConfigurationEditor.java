@@ -59,7 +59,7 @@ public class WfDebugRunConfigurationEditor extends SettingsEditor<WfDebugRunConf
                         +
                         "To build tdlv, use the Makefile in your wf-debugger project that contains:<br/>" +
                         "• Makefile<br/>" +
-                        "• custom-debugger/ directory<br/>" +
+                        "• tdlv/ directory<br/>" +
                         "• my-wf/ directory</small></html>");
         infoLabel.setForeground(javax.swing.UIManager.getColor("Label.disabledForeground"));
 

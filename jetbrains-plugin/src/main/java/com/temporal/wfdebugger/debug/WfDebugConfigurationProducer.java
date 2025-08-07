@@ -110,7 +110,7 @@ public class WfDebugConfigurationProducer extends LazyRunConfigurationProducer<W
 
         // Check for characteristic files/directories of a wf-debugger project
         boolean hasMakefile = new File(dir, "Makefile").exists();
-        boolean hasDelveWrapper = new File(dir, "custom-debugger").isDirectory();
+        boolean hasDelveWrapper = new File(dir, "tdlv").isDirectory();
         boolean hasMyWf = new File(dir, "my-wf").isDirectory();
 
         return hasMakefile && hasDelveWrapper && hasMyWf;
