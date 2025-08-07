@@ -60,6 +60,33 @@ By default, the extension will look for the file that calls [`startDebugReplayer
 
 _Note that the file must be within your project directory so it can find `node_modules/`._
 
+### Background Process
+
+The extension supports running a background process before starting the debug session. This process will be automatically terminated when the debug session ends.
+
+Configure through VS Code settings:
+
+```json
+{
+  "temporal.debugger.backgroundProcess.command": "npm",
+  "temporal.debugger.backgroundProcess.args": ["run", "start"],
+  "temporal.debugger.backgroundProcess.options": {
+    "cwd": "./server",
+    "env": {
+      "PORT": "3000"
+    }
+  }
+}
+```
+
+Common use cases:
+
+- Starting a Temporal server before debugging
+- Launching dependent services (databases, message queues)
+- Running setup scripts or initialization processes
+
+The extension uses graceful termination (SIGTERM) first, then forceful termination (SIGKILL) if needed. Process output is logged to the VS Code console.
+
 ## Contributing
 
-Thank you to [all who have contributed](https://github.com/temporalio/vscode-debugger-extension/graphs/contributors) 🙏😊. If you'd like to contribute, check out our [issues](https://github.com/temporalio/vscode-debugger-extension/issues) and [CONTRIBUTING.md](https://github.com/temporalio/vscode-debugger-extension/blob/main/CONTRIBUTING.md).
+Thank you to [all who have contributed](https://github.com/temporalio/vscode-debugger-extension/graphs/contributors). If you'd like to contribute, check out our [issues](https://github.com/temporalio/vscode-debugger-extension/issues) and [CONTRIBUTING.md](https://github.com/temporalio/vscode-debugger-extension/blob/main/CONTRIBUTING.md).

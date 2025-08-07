@@ -1,8 +1,6 @@
 import * as vscode from "vscode"
 import { supportsESM } from "./is-esm"
 
-
-
 type SupportedLanguage = "typescript" | "go" | "java" | "python"
 
 const nodeConfiguration = {
@@ -11,7 +9,7 @@ const nodeConfiguration = {
   request: "launch",
   runtimeExecutable: "node",
   env: {
-    JS_DEBUG_USE_LOCAL_DAP_PORT: 60000
+    JS_DEBUG_USE_LOCAL_DAP_PORT: 60000,
   },
   internalConsoleOptions: "openOnSessionStart",
   pauseForSourceMap: true,
