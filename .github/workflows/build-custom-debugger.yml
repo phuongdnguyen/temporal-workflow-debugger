@@ -1,0 +1,82 @@
+name: Build and Release Tdlv
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.0)'
+        required: true
+        type: string
+      create_release:
+        description: 'Create GitHub release'
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        goos: [linux, darwin, windows]
+        goarch: [amd64, arm64]
+        exclude:
+          # Exclude windows/arm64 as it's not commonly supported
+          - goos: windows
+            goarch: arm64
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.23'
+          cache: true
+          
+      - name: Build tdlv
+        run: |
+          cd tdlv
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o tdlv-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }} .
+          
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tdlv-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: tdlv/tdlv-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }}
+          
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'true')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/tdlv-linux-amd64/tdlv-linux-amd64
+            artifacts/tdlv-linux-arm64/tdlv-linux-arm64
+            artifacts/tdlv-darwin-amd64/tdlv-darwin-amd64
+            artifacts/tdlv-darwin-arm64/tdlv-darwin-arm64
+            artifacts/tdlv-windows-amd64/tdlv-windows-amd64.exe
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 

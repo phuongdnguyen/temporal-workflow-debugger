@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/go-dap"
 
-	"custom-debugger/pkg/extractors"
+	"tdlv/pkg/extractors"
 )
 
 // GetThreadsResponse reads a protocol message from the connection

@@ -23,8 +23,8 @@ import (
 	"github.com/go-delve/delve/service/debugger"
 	"github.com/go-delve/delve/service/rpccommon"
 
-	"custom-debugger/pkg/handlers"
-	"custom-debugger/pkg/utils"
+	"tdlv/pkg/handlers"
+	"tdlv/pkg/utils"
 )
 
 // JS Debug configuration
@@ -54,6 +54,9 @@ func main() {
 	var quiet bool
 	flag.BoolVar(&quiet, "quiet", false, "suppress dependency check messages (for IDE integration)")
 
+	var entryPoint string
+	flag.StringVar(&entryPoint, "entrypoint", "", "launch entry point for the debugger")
+
 	flag.Parse()
 
 	if showHelp {
@@ -74,7 +77,7 @@ func main() {
 			}
 			os.Exit(1)
 		}
-		startDelve(debuggerStopCh) // Don't auto-install here, already handled
+		startDelve(debuggerStopCh)
 	case "python":
 		if err := ensureDebugPyAvailable(install, quiet); err != nil {
 			if !quiet {
@@ -83,7 +86,7 @@ func main() {
 			}
 			os.Exit(1)
 		}
-		startDebugPy(debuggerStopCh)
+		startDebugPy(debuggerStopCh, entryPoint)
 	case "js":
 		if err := ensureJsDebugAvailable(install, quiet); err != nil {
 			if !quiet {
@@ -618,13 +621,13 @@ func startDelve(stopCh <-chan struct{}) {
 	}()
 }
 
-func startDebugPy(stopCh <-chan struct{}) {
+func startDebugPy(stopCh <-chan struct{}, entryPoint string) {
 	workingDir, err := os.Getwd()
 	if err != nil {
 		log.Fatal(fmt.Errorf("error getting working directory: %w", err))
 	}
 	ctx := context.Background()
-	cmd := exec.CommandContext(ctx, "python", "-m", "debugpy", "--listen", "2345", "--wait-for-client", "vscode-replay.py")
+	cmd := exec.CommandContext(ctx, "python", "-m", "debugpy", "--listen", "2345", "--wait-for-client", entryPoint)
 	cmd.Dir = workingDir // Set working directory to the Python example
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

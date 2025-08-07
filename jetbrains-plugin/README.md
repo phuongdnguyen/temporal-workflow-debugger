@@ -11,7 +11,7 @@ This plugin provides debugging support for Temporal workflows using the custom `
 
 ## Quick Start
 
-1. **Open Your Project**: Open a project containing a wf-debugger setup (with `Makefile`, `custom-debugger/`, and `my-wf/` directories)
+1. **Open Your Project**: Open a project containing a wf-debugger setup (with `Makefile`, `tdlv/`, and `my-wf/` directories)
 
 2. **Create Debug Configuration**: 
    - Right-click on any file in your wf-debugger project
@@ -33,7 +33,7 @@ This plugin provides debugging support for Temporal workflows using the custom `
 
 ### Working Directory
 - **Required**: Path to your wf-debugger project root
-- **Auto-detection**: The plugin automatically finds the project root containing `Makefile`, `custom-debugger/`, and `my-wf/`
+- **Auto-detection**: The plugin automatically finds the project root containing `Makefile`, `tdlv/`, and `my-wf/`
 
 ### Additional Arguments
 - **Default**: `-p 60000` (sets proxy port)
@@ -48,7 +48,7 @@ Your wf-debugger project should contain:
 ```
 wf-debugger/
 ├── Makefile                 # Build configuration
-├── custom-debugger/          # Custom delve wrapper source
+├── tdlv/          # Custom delve wrapper source
 ├── my-wf/                  # Your workflow code
 └── build                   # Generated binary (created automatically)
 ```
@@ -66,11 +66,11 @@ When you start debugging, the plugin:
 
 ### "Could not find wf-debugger project root"
 - Ensure your working directory is within a valid wf-debugger project
-- Check that `Makefile`, `custom-debugger/`, and `my-wf/` directories exist
+- Check that `Makefile`, `tdlv/`, and `my-wf/` directories exist
 
 ### "Failed to build tdlv binary"
 - Ensure you have Go installed and configured
-- Check that the `custom-debugger/` directory contains valid Go source code
+- Check that the `tdlv/` directory contains valid Go source code
 - Verify that `make` is available in your PATH
 
 ### "Go remote debug configuration not available"

@@ -12,9 +12,9 @@ import (
 	"github.com/go-delve/delve/service/api"
 	"github.com/go-delve/delve/service/rpc2"
 
-	"custom-debugger/pkg/extractors"
-	"custom-debugger/pkg/locators"
-	"custom-debugger/pkg/utils"
+	"tdlv/pkg/extractors"
+	"tdlv/pkg/locators"
+	"tdlv/pkg/utils"
 )
 
 // StateOut represents the State method response structure

@@ -1,4 +1,4 @@
-module custom-debugger
+module tdlv
 
 go 1.23.11
 
