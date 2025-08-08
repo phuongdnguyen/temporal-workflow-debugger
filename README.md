@@ -13,8 +13,9 @@ This debugger solves these challenges by leveraging the **workflow replayer** - 
 ## Key Features
 
 ### **Seamless IDE Integration**
-- **Multi-language Support**: Debug workflows written in multiple SDK languages (Go, TypeScript, and Python examples provided, with support for other languages coming soon)
-- **JetBrains Plugin**: Native integration with GoLand via a debugging plugin, using standard IDE debugging controls (breakpoints, step-over, step-into, variable inspection) or set breakpoints in workflow history
+- **Multi-language Support**: Works with Go, TypeScript/Node.js, and Python today via adapters
+- **JetBrains Plugin (Go)**: Native integration with GoLand using standard debugging controls and a history view
+- **VS Code Extension**: Open a panel, load history, set event breakpoints, and replay with your adapter
 
 ## Who Is This For?
 
@@ -26,7 +27,7 @@ Whether you're debugging a complex workflow that's failing in production or just
 
 ### **Installation Options**
 
-Pre-requisite: install `tdlv` debugger from [Github Release](https://github.com/phuongdnguyen/temporal-workflow-debugger/releases/tag/tdlv-v0.0.1)
+Pre-requisite for JetBrains only (optional): install `tdlv` debugger from [Github Release](https://github.com/phuongdnguyen/temporal-workflow-debugger/releases/tag/tdlv-v0.0.1). The JetBrains plugin can auto-build `tdlv` on debug start.
 
 **IDE Plugins:**
 Jetbrains (preview, Go support only): <a href="https://plugins.jetbrains.com/plugin/28127-temporal-workflow-debugger"><img src="https://img.shields.io/badge/Install%20from%20JetBrains%20Marketplace-000000?logo=jetbrains&logoColor=white" alt="Install from JetBrains Marketplace"></a>
@@ -46,9 +47,9 @@ Vscode (Go, Python and JS): <a href="https://marketplace.visualstudio.com/items?
 - Open the Temporal Workflow Debugger view in your IDE (JetBrains or VS Code)
 - Load a Temporal workflow history file (`.json`)
 - The IDE starts a local server on `http://127.0.0.1:54578` that serves:
-  - `GET /history` (workflow history)
-  - `GET /breakpoints` (enabled breakpoints)
-  - `POST /current-event` (highlight current event)
+  - `GET /history` (workflow history in JSON/bytes)
+  - `GET /breakpoints` (enabled breakpoints as event IDs)
+  - `POST /current-event` (highlight current event in the UI)
 
 2) Run your adapter in IDE mode to replay
 - Go
@@ -89,4 +90,11 @@ Vscode (Go, Python and JS): <a href="https://marketplace.visualstudio.com/items?
 3) Debug
 - Set breakpoints in the IDE history view
 - Start your adapter code. It will fetch history/breakpoints from the IDE and pause on hits
+
+### Notes and limitations
+- Only Workflow code executes during replay. Activities are not executed; their effects are driven by history.
+- Breakpoints are event-based. In standalone mode you can also provide explicit event IDs to pause on.
+
+### Examples
+- See `example/go` and `example/js` and `example/python` for runnable samples and history files.
 

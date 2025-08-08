@@ -6,23 +6,19 @@
   <br>
 </h1>
 
-<h4 align="center">Debug TypeScript workflows by their ID or history file.</h4>
+<h4 align="center">Debug Temporal workflows by their ID or history file.</h4>
 <h4 align="center">Set breakpoints in code or on history events.</h4>
 
 ## Usage
 
 Watch [the demo](https://www.youtube.com/watch?v=3IjQde9HMNY) or follow these instructions:
 
-- Install [the extension](https://marketplace.visualstudio.com/items?itemName=temporal-technologies.temporalio)
-- Add a file at `src/debug-replayer.ts` (or can [configure](#entrypoint) an alternate location):
+- Install [the extension](https://marketplace.visualstudio.com/items?itemName=phuongdnguyen.temporal-workflow-debugger)
 
-  ```ts
-  import { startDebugReplayer } from "@temporalio/worker"
-
-  startDebugReplayer({
-    workflowsPath: require.resolve("./workflows"),
-  })
-  ```
+- Follow the examples for:
+- [Typescript](../example/js/vscode-replayer.ts)
+- [Go](../example/go/structured-workflow/replay-debug-ide-integrated/)
+- [Python](../example/python/vscode-replay.py)
 
 - Edit the `'./workflows'` path to match the location of your workflows file
 - Run `Temporal: Open Panel` (use `Cmd/Ctrl-Shift-P` to open Command Palette)
@@ -47,18 +43,104 @@ To connect to a different Server:
 
 ### Entrypoint
 
-By default, the extension will look for the file that calls [`startDebugReplayer`](https://typescript.temporal.io/api/namespaces/worker#startdebugreplayer) at `src/debug-replayer.ts`. To use a different TypeScript or JavaScript file, set the `temporal.replayerEntrypoint` config:
+#### Typescript
+
+By default, the extension will look for the file that calls [`startDebugReplayer`](https://typescript.temporal.io/api/namespaces/worker#startdebugreplayer) at `src/debug-replayer.ts`. To use a different TypeScript or JavaScript file, set the `temporal.typeScriptReplayerEntrypoint` config:
 
 - Open or create `.vscode/settings.json`
 - Add the config field:
 
   ```json
   {
-    "temporal.replayerEntrypoint": "test/different-file.ts"
+    "temporal.typeScriptReplayerEntrypoint": "test/different-file.ts"
   }
   ```
 
 _Note that the file must be within your project directory so it can find `node_modules/`._
+
+#### Go
+
+Go entrypoints are started via the background process. Create a small `main.go` in your project that runs the Go replayer adapter in IDE mode and registers your workflow function, for example:
+
+```go
+package main
+
+import (
+    "go.temporal.io/sdk/worker"
+    replayer "github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go"
+    "your/module/workflows"
+)
+
+func main() {
+    replayer.SetReplayMode(replayer.ReplayModeIde)
+    _ = replayer.Replay(replayer.ReplayOptions{
+        WorkerReplayOptions: worker.WorkflowReplayerOptions{DisableDeadlockDetection: true},
+    }, workflows.YourWorkflow)
+}
+```
+
+Configure the background process to run `tdlv` which builds and runs your entrypoint under Delve and exposes a DAP proxy on port 60000. Set `cwd` to the folder that contains your `package main` (the entrypoint):
+
+```json
+{
+  "temporal.debugLanguage": "go",
+  "temporal.debugger.backgroundProcess.command": "tdlv",
+  "temporal.debugger.backgroundProcess.args": ["--lang=go", "--install", "--quiet"],
+  "temporal.debugger.backgroundProcess.options": { "cwd": "./path-to-your-entrypoint-folder" }
+}
+```
+
+The extension automatically attaches to the proxy. If your workspace root is the Go module, you may omit `options.cwd`.
+
+#### Python
+
+Python entrypoints are also started via the background process. Create a small script (e.g. `vscode-replay.py`) that uses the Python replayer adapter in IDE mode and references your workflow:
+
+```python
+import asyncio
+from replayer_adapter_python.replayer import ReplayMode, ReplayOptions, set_replay_mode, replay
+from workflow import YourWorkflow
+
+async def main():
+    set_replay_mode(ReplayMode.IDE)
+    await replay(ReplayOptions(worker_replay_options={}), YourWorkflow)
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+Configure the background process to start `tdlv` for Python and point it at your entrypoint script (DebugPy will be launched by `tdlv` and proxied via port 60000):
+
+```json
+{
+  "temporal.debugLanguage": "python",
+  "temporal.debugger.backgroundProcess.command": "tdlv",
+  "temporal.debugger.backgroundProcess.args": [
+    "--lang=python",
+    "--install",
+    "--quiet",
+    "--entrypoint",
+    "${workspaceFolder}/vscode-replay.py"
+  ]
+}
+```
+
+### Languages
+
+You can choose which language to debug via the `temporal.debugLanguage` setting. Supported values:
+
+- `typescript` (default)
+- `go`
+- `java`
+- `python`
+
+Set it in your workspace settings:
+
+```json
+{
+  "temporal.debugLanguage": "go"
+}
+```
 
 ### Background Process
 
@@ -82,11 +164,22 @@ Configure through VS Code settings:
 Common use cases:
 
 - Starting a Temporal server before debugging
-- Launching dependent services (databases, message queues)
 - Running setup scripts or initialization processes
 
 The extension uses graceful termination (SIGTERM) first, then forceful termination (SIGKILL) if needed. Process output is logged to the VS Code console.
 
-## Contributing
+### Adapter integration (IDE server)
 
-Thank you to [all who have contributed](https://github.com/temporalio/vscode-debugger-extension/graphs/contributors). If you'd like to contribute, check out our [issues](https://github.com/temporalio/vscode-debugger-extension/issues) and [CONTRIBUTING.md](https://github.com/temporalio/vscode-debugger-extension/blob/main/CONTRIBUTING.md).
+When a history is loaded in the panel, the extension starts a local server used by language adapters:
+
+- Address: `http://127.0.0.1:54578`
+- Endpoints:
+  - `GET /history` – returns the workflow history (JSON bytes)
+  - `GET /breakpoints` – returns the enabled breakpoint event IDs
+  - `POST /current-event` – highlight the current event in the UI
+
+Adapters may honor the `WFDBG_HISTORY_PORT` environment variable to override the default port.
+
+Notes:
+
+- Only Workflow code executes during replay; Activity code isn’t run (effects are driven by history).
