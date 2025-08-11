@@ -305,12 +305,11 @@ class RunnerWorkerInterceptor(Interceptor):
 def get_history_from_ide() -> WorkflowHistory:
     """Get workflow history from IDE via HTTP"""
     global debugger_addr
-    port = os.environ.get("WFDBG_HISTORY_PORT", "54578")
-    runner_addr = f"http://127.0.0.1:{port}"
+    addr = os.environ.get("TEMPORAL_DEBUGGER_PLUGIN_URL", "http://localhost:54578")
     try:
-        resp = requests.get(f"{runner_addr}/history", timeout=5)
+        resp = requests.get(f"{addr}/history", timeout=5)
         resp.raise_for_status()
-        debugger_addr = runner_addr
+        debugger_addr = addr
         hist_json = resp.json()
         return WorkflowHistory.from_json("replayed-worker", hist_json)
     except Exception as e:

@@ -153,18 +153,16 @@ export function raiseSentinelBreakpoint(caller: string, info?: any): void {
  * Get workflow history from IDE via HTTP
  */
 export async function getHistoryFromIDE(): Promise<temporal.api.history.v1.IHistory> {
-  const port = process.env.WFDBG_HISTORY_PORT || '54578';
-  const runnerAddr = `http://127.0.0.1:${port}`;
+  const addr = process.env.TEMPORAL_DEBUGGER_PLUGIN_URL || `http://127.0.0.1:54578`;
   
   try {
+    setDebuggerAddr(addr);
     const response = await httpGet(`${getDebuggerAddr()}/history`);
     if (response.statusCode !== 200) {
       throw new Error(`HTTP error! status: ${response.statusCode}`);
     }
     
-    const historyData = JSON.parse(response.body);
-    setDebuggerAddr(runnerAddr);
-    return historyData;
+    return JSON.parse(response.body);
   } catch (error) {
     console.error(`Could not get history from IDE: ${error}`);
     throw error;

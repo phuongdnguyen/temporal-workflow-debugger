@@ -218,15 +218,16 @@ func highlightCurrentEventInIDE(eventId int) {
 }
 
 func getHistoryFromIDE() (*historypb.History, error) {
-	port := os.Getenv("WFDBG_HISTORY_PORT")
-	if port == "" {
-		port = "54578"
-	}
-	runnerAddr := "http://127.0.0.1:" + port
 
+	addr := os.Getenv("TEMPORAL_DEBUGGER_PLUGIN_URL")
+	if addr == "" {
+		addr = "localhost:54578"
+	}
+	// Store runner address for breakpoint checks
+	debuggerAddr = addr
 	// Create client with timeout to match other implementations
 	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Get(runnerAddr + "/history")
+	resp, err := client.Get(debuggerAddr + "/history")
 	if err != nil {
 		return nil, fmt.Errorf("could not get history from IDE: %v", err)
 	}
@@ -247,8 +248,6 @@ func getHistoryFromIDE() (*historypb.History, error) {
 		return nil, fmt.Errorf("could not parse history: %v", err)
 	}
 
-	// Store runner address for breakpoint checks
-	debuggerAddr = runnerAddr
 	return hist, nil
 }
 
