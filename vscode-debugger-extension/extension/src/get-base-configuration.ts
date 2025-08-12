@@ -1,13 +1,27 @@
 import * as vscode from "vscode"
 import { supportsESM } from "./is-esm"
 
+
+const getLanguageFromConfig = (): SupportedLanguage => {
+  const config = vscode.workspace.getConfiguration("temporal")
+  const language = config.get("debugLanguage") as SupportedLanguage
+  return language || "typescript" // Default to TypeScript for backward compatibility
+}
+
+const getExecutableFromConfig = (): string => {
+  const lang = getLanguageFromConfig()
+  console.log(`getExecutableFromConfig, lang: ${lang}`)
+  console.log(`vscode.workspace.getConfiguration("temporal").get(lang) as string: ${vscode.workspace.getConfiguration("temporal").get(lang) as string}`)
+  return vscode.workspace.getConfiguration("temporal").get(lang) as string
+}
+
 type SupportedLanguage = "typescript" | "go" | "java" | "python"
 
 const nodeConfiguration = {
   name: "Launch Program",
   type: "node",
   request: "launch",
-  runtimeExecutable: "node",
+  runtimeExecutable: getExecutableFromConfig() || "node",
   skipFiles: [
     "<node_internals>/**",
     "**/node_modules/@temporalio/worker/src/**",
@@ -24,6 +38,7 @@ const goConfiguration = {
   name: "Launch Program",
   type: "go",
   request: "attach",
+  runtimeExecutable: getExecutableFromConfig() || "go",
   mode: "remote",
   port: 60000,
   host: "127.0.0.1",
@@ -44,6 +59,7 @@ const pythonConfiguration = {
   name: "Launch Program",
   type: "debugpy",
   request: "launch",
+  python: getExecutableFromConfig() || "python",
   connect: {
     host: "localhost",
     port: 60000,
@@ -52,11 +68,6 @@ const pythonConfiguration = {
   internalConsoleOptions: "openOnSessionStart",
 } satisfies vscode.DebugConfiguration
 
-const getLanguageFromConfig = (): SupportedLanguage => {
-  const config = vscode.workspace.getConfiguration("temporal")
-  const language = config.get("debugLanguage") as SupportedLanguage
-  return language || "typescript" // Default to TypeScript for backward compatibility
-}
 
 export const getBaseConfiguration = async (): Promise<vscode.DebugConfiguration> => {
   const language = getLanguageFromConfig()

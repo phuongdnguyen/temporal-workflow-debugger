@@ -10,7 +10,6 @@ import { Server } from "./server"
 import { getBaseConfiguration, getCurrentLanguage } from "./get-base-configuration"
 import which from "which"
 import net from "node:net"
-import type { PythonExtension } from "@vscode/python-extension"
 
 interface StartFromId {
   namespace?: string
