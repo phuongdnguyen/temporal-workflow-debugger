@@ -8,6 +8,9 @@ import { temporal } from "@temporalio/proto"
 import { Connection, LOCAL_TARGET } from "@temporalio/client"
 import { Server } from "./server"
 import { getBaseConfiguration, getCurrentLanguage } from "./get-base-configuration"
+import which from 'which';
+import net from 'node:net';
+import type { PythonExtension } from '@vscode/python-extension';
 
 interface StartFromId {
   namespace?: string
@@ -54,7 +57,7 @@ export class HistoryDebuggerPanel {
   public currentHistoryBuffer?: Buffer
   private originalHistoryJSON?: any // Store the original JSON for the /history endpoint
   private enabledBreakpoints: Set<number> = new Set() // Store breakpoints like Java extension
-  private backgroundProcess?: ChildProcess // Background process to run alongside debugging
+  private debuggerProcess?: ChildProcess // Background process to run alongside debugging
   private debugSessionDisposables: vscode.Disposable[] = [] // Debug session event listeners
 
   public static readonly viewType = "temporal-debugger-plugin"
@@ -113,112 +116,126 @@ export class HistoryDebuggerPanel {
     })
   }
 
-  /**
-   * Starts a background process programmatically.
-   * This is a public method that can be called from other parts of the extension.
-   * @param command The command to run
-   * @param args Array of arguments for the command
-   * @param options Optional spawn options
-   */
-  public async startBackgroundProcessProgrammatically(
-    command: string,
-    args: string[] = [],
-    options: any = {},
-  ): Promise<void> {
-    await this.startBackgroundProcess(command, args, options)
-  }
-
-  /**
-   * Terminates the background process programmatically.
-   * This is a public method that can be called from other parts of the extension.
-   */
-  public async terminateBackgroundProcessProgrammatically(): Promise<void> {
-    await this.terminateBackgroundProcess()
-  }
 
   /**
    * Checks if a background process is currently running.
    */
-  public isBackgroundProcessRunning(): boolean {
-    return this.backgroundProcess !== undefined && !this.backgroundProcess.killed
+  public isDebuggerProcessRunning(): boolean {
+    return this.debuggerProcess !== undefined && !this.debuggerProcess.killed
   }
 
   /**
-   * Starts a background process before debugging begins.
+   * Starts a debugger process before debugging begins.
    * The process will be terminated when the debug session ends.
    * @param command The command to run (e.g., "npm", "go", "python")
    * @param args Array of arguments for the command
    * @param options Optional spawn options (cwd, env, etc.)
    */
-  private async startBackgroundProcess(command: string, args: string[] = [], options: any = {}): Promise<void> {
+  private async startDebugger(command: string, args: string[] = [], options: any = {}): Promise<void> {
     // Terminate any existing background process
-    await this.terminateBackgroundProcess()
+    await this.terminateDebugger()
 
     try {
-      console.log(`Starting background process: ${command} ${args.join(" ")}`)
+      console.log(`Starting debugger process: ${command} ${args.join(" ")}`)
+      console.log(`Debugger process cwd: ${vscode.workspace.workspaceFolders?.[0]?.uri.fsPath}`)
+      vscode.window.showInformationMessage("Starting the debugging process. If this is the first time, the debugger will install neccessary depencies based on your language configuration.")
 
-      this.backgroundProcess = spawn(command, args, {
-        cwd: options.cwd || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+      this.debuggerProcess = spawn(command, args, {
+        cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
         env: { ...process.env, ...options.env },
         stdio: ["ignore", "pipe", "pipe"], // Capture stdout and stderr
         ...options,
       })
 
       // Log output from the background process
-      this.backgroundProcess.stdout?.on("data", (data) => {
-        console.log(`Background process stdout: ${data.toString()}`)
+      this.debuggerProcess.stdout?.on("data", (data) => {
+        console.log(`Debugger process stdout: ${data.toString()}`)
       })
 
-      this.backgroundProcess.stderr?.on("data", (data) => {
-        console.log(`Background process stderr: ${data.toString()}`)
+      this.debuggerProcess.stderr?.on("data", (data) => {
+        console.log(`Debugger process stderr: ${data.toString()}`)
       })
 
-      this.backgroundProcess.on("error", (error) => {
-        console.error(`Background process error: ${error.message}`)
-        vscode.window.showErrorMessage(`Background process failed: ${error.message}`)
+      this.debuggerProcess.on("error", (error) => {
+        console.error(`Debugger process error: ${error.message}`)
+        vscode.window.showErrorMessage(`Debugger process failed: ${error.message}`)
       })
 
-      this.backgroundProcess.on("exit", (code, signal) => {
-        console.log(`Background process exited with code ${code}, signal ${signal}`)
-        this.backgroundProcess = undefined
+      this.debuggerProcess.on("exit", (code, signal) => {
+        console.log(`Debugger process exited with code ${code}, signal ${signal}`)
+        this.debuggerProcess = undefined
       })
+
 
       // Give the process a moment to start
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-
-      if (this.backgroundProcess?.killed) {
-        throw new Error("Background process failed to start")
+      let attemp = 0;
+      while (attemp < 10) {
+        if (attemp > 0) {
+          switch (getCurrentLanguage()) {
+            case "go":
+              vscode.window.showInformationMessage("Installing dependencies: delve")
+              break
+            case "python":
+              vscode.window.showInformationMessage("Installing dependencies: debugpy")
+              break
+            case "typescript":
+              vscode.window.showInformationMessage("Installing dependencies: js-debug")
+              break
+          }
+        }
+        console.log("Sleeping")
+        await new Promise((resolve) => setTimeout(resolve, 2000))
+        console.log("Sleeping done")
+        if (await this.isPortListening(60000)) {
+          break
+        }
+        attemp++
       }
 
-      console.log(`Background process started successfully (PID: ${this.backgroundProcess?.pid})`)
+      if (this.debuggerProcess?.killed) {
+        throw new Error("Debugger process failed to start")
+      }
+
+      console.log(`Debugger process started successfully (PID: ${this.debuggerProcess?.pid})`)
     } catch (error) {
-      console.error(`Failed to start background process: ${error}`)
+      console.error(`Failed to start debugger process: ${error}`)
       throw error
     }
   }
 
+  private async isPortListening(port: number, host = '127.0.0.1', timeoutMs = 1000): Promise<boolean> {
+    return new Promise((resolve) => {
+      const socket = net.createConnection({ port, host });
+      const finish = (ok: boolean) => { socket.destroy(); resolve(ok); };
+      socket.setTimeout(timeoutMs);
+      socket.once('connect', () => finish(true));
+      socket.once('timeout', () => finish(false));
+      socket.once('error', () => finish(false));
+    });
+  }
+
   /**
-   * Terminates the background process if it's running
+   * Terminates the debugger process if it's running
    */
-  private async terminateBackgroundProcess(): Promise<void> {
-    if (this.backgroundProcess && !this.backgroundProcess.killed) {
-      console.log(`Terminating background process (PID: ${this.backgroundProcess.pid})`)
+  private async terminateDebugger(): Promise<void> {
+    if (this.debuggerProcess && !this.debuggerProcess.killed) {
+      console.log(`Terminating debugger process (PID: ${this.debuggerProcess.pid})`)
 
       try {
         // Try graceful termination first
-        this.backgroundProcess.kill("SIGTERM")
+        this.debuggerProcess.kill("SIGTERM")
 
         // Wait up to 5 seconds for graceful termination
         await new Promise<void>((resolve) => {
           const timeout = setTimeout(() => {
-            if (this.backgroundProcess && !this.backgroundProcess.killed) {
+            if (this.debuggerProcess && !this.debuggerProcess.killed) {
               console.log("Forcefully killing background process")
-              this.backgroundProcess.kill("SIGKILL")
+              this.debuggerProcess.kill("SIGKILL")
             }
             resolve()
           }, 5000)
 
-          this.backgroundProcess?.on("exit", () => {
+          this.debuggerProcess?.on("exit", () => {
             clearTimeout(timeout)
             resolve()
           })
@@ -227,7 +244,7 @@ export class HistoryDebuggerPanel {
         console.error(`Error terminating background process: ${error}`)
       }
 
-      this.backgroundProcess = undefined
+      this.debuggerProcess = undefined
     }
   }
 
@@ -240,7 +257,7 @@ export class HistoryDebuggerPanel {
       // Check if this is our debug session by looking at the configuration
       if (session.configuration && session.configuration.env?.TEMPORAL_DEBUGGER_PLUGIN_URL === this.server.url) {
         console.log("Debug session terminated, cleaning up background process")
-        await this.terminateBackgroundProcess()
+        await this.terminateDebugger()
       }
     })
 
@@ -256,14 +273,30 @@ export class HistoryDebuggerPanel {
   }
 
   /**
-   * Gets the background process configuration from VS Code settings
+   * Gets the debugger process configuration from VS Code settings
    */
-  private getBackgroundProcessConfig(): { command?: string; args?: string[]; options?: any } {
-    const config = vscode.workspace.getConfiguration("temporal.debugger")
-    return {
-      command: config.get<string>("backgroundProcess.command"),
-      args: config.get<string[]>("backgroundProcess.args") || [],
-      options: config.get<any>("backgroundProcess.options") || {},
+  private async getDebuggerConfig(): Promise<{ command?: string; args?: string[]; options?: any }> {
+
+    const language = getCurrentLanguage()
+    const tdlv = this.resolveOnPath("tdlv")
+    const baseArgs = ["--install", "--quiet"]
+    switch (language) {
+      case "python":
+        const entryPoint = await this.getReplayerEntrypoint()
+        return {
+          command: tdlv,
+          args: ["--lang=python", `--entrypoint=${entryPoint}`].concat(baseArgs),
+        }
+      case "typescript":
+        return {
+          command: tdlv,
+          args: ["--lang=js"].concat(baseArgs),
+        }
+      default:
+        return {
+          command: tdlv,
+          args: ["--lang=go"].concat(baseArgs),
+        }
     }
   }
 
@@ -312,7 +345,7 @@ export class HistoryDebuggerPanel {
 
   public async dispose(): Promise<void> {
     // Terminate any running background process
-    await this.terminateBackgroundProcess()
+    await this.terminateDebugger()
 
     // Clean up debug session listeners
     while (this.debugSessionDisposables.length) {
@@ -491,9 +524,9 @@ export class HistoryDebuggerPanel {
     })
   }
 
-  private async getTypescriptReplayerEndpoint() {
+  private async getReplayerEntrypoint() {
     const config = vscode.workspace.getConfiguration("temporal")
-    let typeScriptReplayerEntrypoint = config.get("typeScriptReplayerEntrypoint") as string
+    let replayerEntryPoint = config.get("replayerEntryPoint") as string
     const language = getCurrentLanguage()
     const workspace = vscode.workspace.workspaceFolders?.[0]
     const workspaceFolder = workspace?.uri
@@ -504,13 +537,13 @@ export class HistoryDebuggerPanel {
     console.log("- Workspace folder:", workspaceFolder?.fsPath)
     console.log("- All temporal config:", config)
 
-    const configuredAbsolutePath = path.isAbsolute(typeScriptReplayerEntrypoint)
+    const configuredAbsolutePath = path.isAbsolute(replayerEntryPoint)
 
     // Provide language-specific defaults if not configured
-    if (!typeScriptReplayerEntrypoint) {
+    if (!replayerEntryPoint) {
       switch (language) {
         case "typescript":
-          typeScriptReplayerEntrypoint = "src/debug-replayer.ts"
+          replayerEntryPoint = "src/debug-replayer.ts"
           break
         default:
           throw new Error(`No default replayer endpoint for language: ${language}`)
@@ -521,36 +554,36 @@ export class HistoryDebuggerPanel {
       if (workspaceFolder === undefined) {
         throw new Error("temporal.replayerEndpoint not configured, cannot use default without a workspace folder")
       } else {
-        typeScriptReplayerEntrypoint = vscode.Uri.joinPath(workspaceFolder, typeScriptReplayerEntrypoint).fsPath
+        replayerEntryPoint = vscode.Uri.joinPath(workspaceFolder, replayerEntryPoint).fsPath
       }
     }
 
     try {
-      const stat: vscode.FileStat = await vscode.workspace.fs.stat(vscode.Uri.file(typeScriptReplayerEntrypoint))
+      const stat: vscode.FileStat = await vscode.workspace.fs.stat(vscode.Uri.file(replayerEntryPoint))
       const { type } = stat
       if (type === vscode.FileType.Directory) {
         throw new Error(
-          `Configured temporal.replayerEndpoint (${typeScriptReplayerEntrypoint}) is a folder, please provide a file instead`,
+          `Configured temporal.replayerEndpoint (${replayerEntryPoint}) is a folder, please provide a file instead`,
         )
       }
       if (type === vscode.FileType.Unknown) {
         throw new Error(
-          `Configured temporal.replayerEndpoint (${typeScriptReplayerEntrypoint}) is of unknown type, please provide a file instead`,
+          `Configured temporal.replayerEndpoint (${replayerEntryPoint}) is of unknown type, please provide a file instead`,
         )
       }
     } catch (err: any) {
       if (err?.code === vscode.FileSystemError.FileNotFound.name) {
         if (!configuredAbsolutePath && (vscode.workspace.workspaceFolders?.length ?? 0) > 1) {
           throw new Error(
-            `Configured temporal.replayerEndpoint (${typeScriptReplayerEntrypoint}) not found (multiple workspace folders found, consider using an absolute path to disambiguate)`,
+            `Configured temporal.replayerEndpoint (${replayerEntryPoint}) not found (multiple workspace folders found, consider using an absolute path to disambiguate)`,
           )
         }
-        throw new Error(`Configured temporal.replayerEndpoint (${typeScriptReplayerEntrypoint}) not found`)
+        throw new Error(`Configured temporal.replayerEndpoint (${replayerEntryPoint}) not found`)
       }
       throw err
     }
 
-    return typeScriptReplayerEntrypoint
+    return replayerEntryPoint
   }
 
   private getLanguageRequirements(language: string): string {
@@ -604,31 +637,33 @@ export class HistoryDebuggerPanel {
 
     const baseConfig = await getBaseConfiguration()
 
-    // Start background process if configured
-    const backgroundProcessConfig = this.getBackgroundProcessConfig()
-    if (backgroundProcessConfig.command) {
+    // Start debugger process
+    const debuggerConfig = await this.getDebuggerConfig()
+    console.log(`debuggerConfig: ${JSON.stringify(debuggerConfig)}`)
+    if (debuggerConfig.command) {
       try {
-        await this.startBackgroundProcess(
-          backgroundProcessConfig.command,
-          backgroundProcessConfig.args,
-          backgroundProcessConfig.options,
+        await this.startDebugger(
+          debuggerConfig.command,
+          debuggerConfig.args,
+          debuggerConfig.options,
         )
-        console.log("Background process started successfully before debugging")
+        console.log("Debugger process started successfully")
       } catch (error) {
         console.error("Failed to start background process:", error)
-        // Show error but don't prevent debugging from continuing
-        await vscode.window.showWarningMessage(
-          `Failed to start background process: ${error}. Debugging will continue without it.`,
+        // Show error and stop the debug session
+        await vscode.window.showErrorMessage(
+          `Failed to start background process: ${error}. Debugging will exit.`,
         )
+        throw (error)
       }
     }
 
     // Language-specific configuration
     let debugConfig: vscode.DebugConfiguration
+    const replayerEntrypoint = await this.getReplayerEntrypoint()
 
     switch (language) {
       case "typescript":
-        const typescriptReplayerEndpoint = await this.getTypescriptReplayerEndpoint()
         // TypeScript-specific configuration
         if (process.env.TEMPORAL_DEBUGGER_EXTENSION_DEV_MODE) {
           baseConfig.skipFiles?.push("${workspaceFolder}/packages/worker/src/**")
@@ -638,7 +673,7 @@ export class HistoryDebuggerPanel {
         const pathPrefix = process.env.NODE_PATH ? `${process.env.NODE_PATH ?? ""}${delim}` : ""
         debugConfig = {
           ...baseConfig,
-          args: [typescriptReplayerEndpoint],
+          args: [replayerEntrypoint],
           env: {
             TEMPORAL_DEBUGGER_PLUGIN_URL: this.server.url,
             NODE_PATH: `${pathPrefix}${path.join(__dirname, "../../node_modules")}`,
@@ -652,15 +687,7 @@ export class HistoryDebuggerPanel {
           env: {
             TEMPORAL_DEBUGGER_PLUGIN_URL: this.server.url,
           },
-        }
-        break
-
-      case "java":
-        debugConfig = {
-          ...baseConfig,
-          env: {
-            TEMPORAL_DEBUGGER_PLUGIN_URL: this.server.url,
-          },
+          program: replayerEntrypoint,
         }
         break
 
@@ -670,6 +697,7 @@ export class HistoryDebuggerPanel {
           env: {
             TEMPORAL_DEBUGGER_PLUGIN_URL: this.server.url,
           },
+          program: replayerEntrypoint,
         }
         break
 
@@ -737,5 +765,13 @@ export class HistoryDebuggerPanel {
       </body>
       <script src="${scriptUri}"></script>
       </html>`
+  }
+
+  private resolveOnPath(command: string, env?: NodeJS.ProcessEnv): string {
+    const resolved = which.sync(command, { nothrow: true, path: (env?.PATH ?? process.env.PATH) });
+    if (!resolved) {
+      throw new Error(`Command "${command}" not found on PATH`);
+    }
+    return resolved;
   }
 }

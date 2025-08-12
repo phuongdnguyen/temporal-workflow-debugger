@@ -89,10 +89,12 @@ func IsUserCodeFile(filePath, workingDir string) bool {
 		return false
 	}
 
-	// Also exclude Temporal SDK and GoDelve runtime code (should be outside working dir anyway)
+	// Also exclude Temporal SDK and GoDelve runtime code
 	if strings.Contains(filePath, "go.temporal.io/sdk/") ||
 		strings.Contains(filePath, "go.temporal.io/sdk@") ||
+		strings.Contains(filePath, "@temporalio") ||
 		strings.Contains(filePath, "/runtime/") ||
+		strings.Contains(filePath, "<node_internals>") ||
 		strings.Contains(filePath, "/reflect/") {
 		return false
 	}

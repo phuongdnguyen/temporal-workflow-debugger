@@ -44,8 +44,11 @@ func main() {
 	flag.IntVar(&proxyPort, "p", 60000, "port for tdlv")
 	var lang string
 	flag.StringVar(&lang, "lang", "go", "language to use for the workflow, available options: [go, python, js]")
+	var pythonPath string
+	flag.StringVar(&pythonPath, "python", "python", "path to the python executable")
+
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "Tdlv is a temporal workflow debugger, (ports 2345 / 60000)\n\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "Tdlv is a temporal workflow debugger\n\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [options]\n\n", os.Args[0])
 		flag.PrintDefaults()
 	}
@@ -86,7 +89,7 @@ func main() {
 			}
 			os.Exit(1)
 		}
-		startDebugPy(debuggerStopCh, entryPoint)
+		startDebugPy(debuggerStopCh)
 	case "js":
 		if err := ensureJsDebugAvailable(install, quiet); err != nil {
 			if !quiet {
@@ -621,13 +624,13 @@ func startDelve(stopCh <-chan struct{}) {
 	}()
 }
 
-func startDebugPy(stopCh <-chan struct{}, entryPoint string) {
+func startDebugPy(stopCh <-chan struct{}) {
 	workingDir, err := os.Getwd()
 	if err != nil {
 		log.Fatal(fmt.Errorf("error getting working directory: %w", err))
 	}
 	ctx := context.Background()
-	cmd := exec.CommandContext(ctx, "python", "-m", "debugpy", "--listen", "2345", "--wait-for-client", entryPoint)
+	cmd := exec.CommandContext(ctx, "/Users/duyphuongnguyen/GolandProjects/temporal-goland-plugin/replayer-adapter-python/venv/bin/python", "-m", "debugpy.adapter", "--port", "2345")
 	cmd.Dir = workingDir // Set working directory to the Python example
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

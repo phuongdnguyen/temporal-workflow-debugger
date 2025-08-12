@@ -190,7 +190,15 @@ func (rir *ResponseInterceptingReader) handleStoppedEvent(event *dap.StoppedEven
 	}
 	// var totalBuf []byte
 	for _, frame := range resp.Body.StackFrames {
+		if frame.Source == nil {
+			rir.log.Printf("frame %+v has no source info \n", frame)
+			continue
+		}
 		rir.log.Printf("Checking Frame with source: %+v", *frame.Source)
+		if !locators.IsInAdapterCodeByPath(frame.Source.Path) {
+			log.Printf("Found %s in user code, breaking out", frame.Source.Path)
+			break
+		}
 		if locators.IsInAdapterCodeByPath(frame.Source.Path) {
 			rir.log.Printf("Frame with path %s is in adapter code, stepping out", frame.Source.Path)
 			// 	Step until user code

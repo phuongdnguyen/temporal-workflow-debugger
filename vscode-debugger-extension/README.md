@@ -45,14 +45,14 @@ To connect to a different Server:
 
 #### Typescript
 
-By default, the extension will look for the file that calls [`startDebugReplayer`](https://typescript.temporal.io/api/namespaces/worker#startdebugreplayer) at `src/debug-replayer.ts`. To use a different TypeScript or JavaScript file, set the `temporal.typeScriptReplayerEntrypoint` config:
+By default, the extension will look for the file that calls [`startDebugReplayer`](https://typescript.temporal.io/api/namespaces/worker#startdebugreplayer) at `src/debug-replayer.ts`. To use a different TypeScript or JavaScript file, set the `temporal.replayerEntryPoint` config:
 
 - Open or create `.vscode/settings.json`
 - Add the config field:
 
   ```json
   {
-    "temporal.typeScriptReplayerEntrypoint": "test/different-file.ts"
+    "temporal.replayerEntryPoint": "test/different-file.ts"
   }
   ```
 

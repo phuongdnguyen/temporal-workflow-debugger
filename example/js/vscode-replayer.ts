@@ -13,7 +13,7 @@ async function main() {
         const opts = {
             mode: ReplayMode.IDE,
             workerReplayOptions: {
-                workflowsPath: require.resolve('./workflow'),
+                workflowsPath: require.resolve('./workflow.ts'),
                 bundlerOptions: {
                     ignoreModules: [
                         'fs/promises',
@@ -25,7 +25,7 @@ async function main() {
                 },
                 debugMode: true,
             },
-            debuggerAddr: "http://localhost:54578"
+            debuggerAddr: 'http://127.0.0.1:54578'
         } as any; // adapter types
 
         await replay(opts, exampleWorkflow);

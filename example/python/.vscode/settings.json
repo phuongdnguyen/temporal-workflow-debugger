@@ -1,5 +1,6 @@
 {
     "temporal.debugLanguage": "python",
-    "temporal.debugger.backgroundProcess.command": "tdlv",
-    "temporal.debugger.backgroundProcess.args": ["--lang=python", "--entrypoint=vscode-replay.py", "--install", "--quiet"]
+    "temporal.replayerEntryPoint": "vscode-replay.py"
+    // "temporal.debugger.backgroundProcess.command": "tdlv",
+    // "temporal.debugger.backgroundProcess.args": ["--lang=python", "--entrypoint=vscode-replay.py", "--install", "--quiet"]
 }

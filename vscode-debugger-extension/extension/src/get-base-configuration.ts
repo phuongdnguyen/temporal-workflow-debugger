@@ -8,12 +8,32 @@ const nodeConfiguration = {
   type: "node",
   request: "launch",
   runtimeExecutable: "node",
+  skipFiles: [
+    "<node_internals>/**",
+    "**/node_modules/@temporalio/worker/src/**",
+    "**/node_modules/@temporalio/worker/lib/**",
+    "**/node_modules/@temporalio/common/src/**",
+    "**/node_modules/@temporalio/common/lib/**",
+    "**/node_modules/**/source-map/**",
+  ],
   env: {
     JS_DEBUG_USE_LOCAL_DAP_PORT: 60000,
   },
   internalConsoleOptions: "openOnSessionStart",
   pauseForSourceMap: true,
 } satisfies vscode.DebugConfiguration
+
+// const goConfiguration = {
+//   name: "Launch Program",
+//   type: "go",
+//   request: "attach",
+//   mode: "remote",
+//   port: 60000,
+//   host: "127.0.0.1",
+//   apiVersion: 2,
+//   showLog: true,
+//   internalConsoleOptions: "openOnSessionStart",
+// } satisfies vscode.DebugConfiguration
 
 const goConfiguration = {
   name: "Launch Program",
@@ -35,10 +55,22 @@ const javaConfiguration = {
   internalConsoleOptions: "openOnSessionStart",
 } satisfies vscode.DebugConfiguration
 
+// const pythonConfiguration = {
+//   name: "Launch Program",
+//   type: "debugpy",
+//   request: "attach",
+//   connect: {
+//     host: "localhost",
+//     port: 60000,
+//   },
+//   console: "integratedTerminal",
+//   internalConsoleOptions: "openOnSessionStart",
+// } satisfies vscode.DebugConfiguration
+
 const pythonConfiguration = {
   name: "Launch Program",
   type: "debugpy",
-  request: "attach",
+  request: "launch",
   connect: {
     host: "localhost",
     port: 60000,
