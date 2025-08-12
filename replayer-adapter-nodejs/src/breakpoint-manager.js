@@ -4,7 +4,7 @@
  */
 const { Worker } = require('node:worker_threads');
 const path = require('node:path');
-const { httpPost } = require('./http-client');
+// Note: HTTP calls are delegated to the worker thread
 
 let breakpointThread = undefined;
 
@@ -116,23 +116,36 @@ class BreakpointManager {
    * @param {number} eventId - The current event ID to highlight
    */
   highlightEvent(debuggerAddr, eventId) {
-    console.log(`breakpoint-manager.highlightEvent, debuggerAddr: ${debuggerAddr} eventId: ${eventId}`)
+    console.log(
+      `breakpoint-manager.highlightEvent, debuggerAddr: ${debuggerAddr} eventId: ${eventId}`
+    );
     if (!debuggerAddr) {
       console.warn('No debugger address provided to highlightEvent');
       return;
     }
 
-    const payload = JSON.stringify({ "eventId": eventId });
-    httpPost(`http://localhost:30000/current-event`, payload)
-      .then((response) => {
-        console.log(`Highlight response status: ${response.statusCode}, body: ${response.body}`);
-        if (response.statusCode !== 200) {
-          console.warn(`Highlight request failed: ${response.statusCode} ${response.body}`);
-        }
-      })
-      .catch((error) => {
-        console.warn(`Failed to send highlight request: ${error}`);
+    try {
+      // Create a small shared buffer to receive completion status
+      const responseSab = new SharedArrayBuffer(4);
+      const responseBuffer = new Int32Array(responseSab);
+
+      // Delegate to worker thread to perform the HTTP POST
+      breakpointThread.postMessage({
+        type: 'highlight-event',
+        debuggerAddr,
+        eventId,
+        responseBuffer,
       });
+
+      // Wait synchronously for worker to complete
+      Atomics.wait(responseBuffer, 0, 0);
+
+      if (responseBuffer[0] === 2) {
+        console.warn('Worker thread failed to send highlight request');
+      }
+    } catch (error) {
+      console.warn(`Failed to send highlight request via worker: ${error}`);
+    }
   }
 }
 
