@@ -630,7 +630,7 @@ func startDebugPy(stopCh <-chan struct{}) {
 		log.Fatal(fmt.Errorf("error getting working directory: %w", err))
 	}
 	ctx := context.Background()
-	cmd := exec.CommandContext(ctx, "/Users/duyphuongnguyen/GolandProjects/temporal-goland-plugin/replayer-adapter-python/venv/bin/python", "-m", "debugpy.adapter", "--port", "2345")
+	cmd := exec.CommandContext(ctx, "python", "-m", "debugpy.adapter", "--port", "2345")
 	cmd.Dir = workingDir // Set working directory to the Python example
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
