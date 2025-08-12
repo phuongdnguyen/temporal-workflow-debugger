@@ -48,6 +48,8 @@ export class Server {
         return
       }
       const { eventId } = req.body
+      console.log(`received current-event request, eventId: ${eventId}`)
+
       try {
         const instance = await HistoryDebuggerPanel.instance
         await instance.updateCurrentWFTStarted(eventId)
@@ -73,7 +75,7 @@ export class Server {
     return new this(server)
   }
 
-  constructor(protected readonly server: http.Server) {}
+  constructor(protected readonly server: http.Server) { }
 
   get url(): string {
     const addr = this.server.address()

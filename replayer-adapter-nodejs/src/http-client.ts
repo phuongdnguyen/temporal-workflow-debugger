@@ -13,7 +13,7 @@ export interface HttpResponse {
 /**
  * Make a GET request
  */
-export function httpGet(url: string, timeout = 5000): Promise<HttpResponse> {
+export function httpGet(url: string, timeout = 1000): Promise<HttpResponse> {
   return new Promise((resolve, reject) => {
     const parsedUrl = new URL(url);
     const options = {
@@ -50,7 +50,14 @@ export function httpGet(url: string, timeout = 5000): Promise<HttpResponse> {
 /**
  * Make a POST request
  */
-export function httpPost(url: string, data: string, timeout = 5000): Promise<HttpResponse> {
+export function httpPost(url: string, data: string, timeout = 1000): Promise<HttpResponse> {
+  console.log(`http-client.httpPost url: ${url}, data: ${data}`)
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: data,
+    // signal: AbortSignal.timeout(timeout),
+  }).then((res) => res.text().then((body) => ({ statusCode: res.status, body })));
   return new Promise((resolve, reject) => {
     const parsedUrl = new URL(url);
     const options = {
@@ -64,6 +71,7 @@ export function httpPost(url: string, data: string, timeout = 5000): Promise<Htt
       },
       timeout,
     };
+    console.log(`http-client.httpPost, option: ${JSON.stringify(options)}`)
 
     const req = http.request(options, (res) => {
       let body = '';
@@ -79,10 +87,10 @@ export function httpPost(url: string, data: string, timeout = 5000): Promise<Htt
     });
 
     req.on('error', reject);
-    req.on('timeout', () => {
-      req.destroy();
-      reject(new Error('Request timeout'));
-    });
+    // req.on('timeout', () => {
+    //   req.destroy();
+    //   reject(new Error('Request timeout'));
+    // });
 
     req.write(data);
     req.end();

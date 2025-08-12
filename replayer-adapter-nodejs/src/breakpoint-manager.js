@@ -4,6 +4,7 @@
  */
 const { Worker } = require('node:worker_threads');
 const path = require('node:path');
+const { httpPost } = require('./http-client');
 
 let breakpointThread = undefined;
 
@@ -106,6 +107,33 @@ class BreakpointManager {
       breakpointThread = undefined;
     }
   }
+
+  /**
+   * Send a highlight request to IDE to focus current event in UI.
+   * This runs outside of the workflow sandbox.
+   *
+   * @param {string} debuggerAddr - The debugger address
+   * @param {number} eventId - The current event ID to highlight
+   */
+  highlightEvent(debuggerAddr, eventId) {
+    console.log(`breakpoint-manager.highlightEvent, debuggerAddr: ${debuggerAddr} eventId: ${eventId}`)
+    if (!debuggerAddr) {
+      console.warn('No debugger address provided to highlightEvent');
+      return;
+    }
+
+    const payload = JSON.stringify({ "eventId": eventId });
+    httpPost(`http://localhost:30000/current-event`, payload)
+      .then((response) => {
+        console.log(`Highlight response status: ${response.statusCode}, body: ${response.body}`);
+        if (response.statusCode !== 200) {
+          console.warn(`Highlight request failed: ${response.statusCode} ${response.body}`);
+        }
+      })
+      .catch((error) => {
+        console.warn(`Failed to send highlight request: ${error}`);
+      });
+  }
 }
 
 /**
@@ -131,7 +159,28 @@ function fetchBreakpointsFromWorkflow(debuggerAddr) {
   }
 }
 
+/**
+ * Global function to send highlight request from workflow context.
+ * Breaks out of the workflow sandbox to the manager running in Node.
+ *
+ * @param {string} debuggerAddr
+ * @param {number} eventId
+ */
+function sendHighlightFromWorkflow(debuggerAddr, eventId) {
+  console.log("breakpoint-manager.sendHighlightFromWorkflow")
+  try {
+    const manager = BreakpointManager.instance();
+    const sendFn = globalThis.constructor.constructor(`
+      return (debuggerAddr, eventId, manager) => manager.highlightEvent(debuggerAddr, eventId);
+    `)();
+    return sendFn(debuggerAddr, eventId, manager);
+  } catch (error) {
+    console.error('Failed to send highlight from workflow context:', error);
+  }
+}
+
 module.exports = {
   BreakpointManager,
-  fetchBreakpointsFromWorkflow
+  fetchBreakpointsFromWorkflow,
+  sendHighlightFromWorkflow
 }; 

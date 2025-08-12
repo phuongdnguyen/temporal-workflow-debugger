@@ -13,6 +13,8 @@ import {
   workflowInfo,
 } from '@temporalio/workflow';
 
+// import { httpPost } from './http-client';
+
 /**
  * Workflow-safe breakpoint checker using worker threads (synchronous)
  */
@@ -24,16 +26,16 @@ function isBreakpointSync(eventId: number): boolean {
       console.warn('fetchBreakpointsFromWorkflow not available, breakpoint checking disabled');
       return false;
     }
-    
+
     // Get debugger address from global context
     const getDebuggerAddr = globalThis.constructor.constructor('return globalThis.getDebuggerAddr')();
     if (!getDebuggerAddr) {
       console.warn('getDebuggerAddr not available, breakpoint checking disabled');
       return false;
     }
-    
+
     const debuggerAddr = getDebuggerAddr();
-    
+
     // For standalone mode, debuggerAddr will be null, and fetchBreakpoints returns the static list
     let breakpointIds: number[];
     if (!debuggerAddr) {
@@ -43,11 +45,24 @@ function isBreakpointSync(eventId: number): boolean {
       // IDE mode: fetch breakpoints from debugger
       breakpointIds = fetchBreakpoints(debuggerAddr);
     }
-    
+
     const isHit = breakpointIds.includes(eventId);
-    
+
     if (isHit) {
       console.log(`✓ Hit breakpoint at eventId: ${eventId}`);
+      // Send highlight request using the same global escape hatch technique
+      if (debuggerAddr) {
+        try {
+          const sendHighlight = globalThis.constructor.constructor('return globalThis.sendHighlightFromWorkflow')();
+          if (typeof sendHighlight === 'function') {
+            console.log("sending highlight request")
+            sendHighlight(debuggerAddr, eventId)
+          }
+        } catch (err) {
+          console.warn('Failed to send highlight request from workflow context:', err);
+        }
+      }
+
     } else {
       console.log(`Event ${eventId} is not a breakpoint. Current breakpoints: [${breakpointIds.join(', ')}]`);
     }
@@ -58,13 +73,28 @@ function isBreakpointSync(eventId: number): boolean {
   }
 }
 
+
+// function sendHighlightRequest(addr: string, payload: string): void {
+//   console.log("Sending higlight request")
+//   httpPost(`${addr}/current-event`, payload)
+//     .then((response) => {
+//       console.log(`Highlight response status: ${response.statusCode}, body: ${response.body}`);
+//       if (response.statusCode !== 200) {
+//         console.warn(`Highlight request failed: ${response.statusCode} ${response.body}`);
+//       }
+//     })
+//     .catch((error) => {
+//       console.warn(`Failed to send highlight request: ${error}`);
+//     });
+// }
+
 /**
  * Raise a breakpoint for debugging - called from interceptors
  * This version uses worker threads for synchronous breakpoint fetching
  */
 function raiseSentinelBreakpointSync(caller: string, info?: any): void {
   let eventId: number | undefined;
-  
+
   if (info) {
     try {
       // Try to get event ID from workflow info
@@ -73,10 +103,10 @@ function raiseSentinelBreakpointSync(caller: string, info?: any): void {
       eventId = undefined;
     }
   }
-  
+
   if (eventId !== undefined) {
     console.log(`runner notified at ${caller}, eventId: ${eventId}`);
-    
+
     // Synchronous breakpoint checking using worker threads
     const shouldBreak = isBreakpointSync(eventId);
     if (shouldBreak) {
