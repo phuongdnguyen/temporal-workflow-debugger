@@ -8,9 +8,9 @@ import { temporal } from "@temporalio/proto"
 import { Connection, LOCAL_TARGET } from "@temporalio/client"
 import { Server } from "./server"
 import { getBaseConfiguration, getCurrentLanguage } from "./get-base-configuration"
-import which from 'which';
-import net from 'node:net';
-import type { PythonExtension } from '@vscode/python-extension';
+import which from "which"
+import net from "node:net"
+import type { PythonExtension } from "@vscode/python-extension"
 
 interface StartFromId {
   namespace?: string
@@ -116,7 +116,6 @@ export class HistoryDebuggerPanel {
     })
   }
 
-
   /**
    * Checks if a background process is currently running.
    */
@@ -138,7 +137,9 @@ export class HistoryDebuggerPanel {
     try {
       console.log(`Starting debugger process: ${command} ${args.join(" ")}`)
       console.log(`Debugger process cwd: ${vscode.workspace.workspaceFolders?.[0]?.uri.fsPath}`)
-      vscode.window.showInformationMessage("Starting the debugging process. If this is the first time, the debugger will install neccessary depencies based on your language configuration.")
+      vscode.window.showInformationMessage(
+        "Starting the debugging process. If this is the first time, the debugger will install neccessary depencies based on your language configuration.",
+      )
 
       this.debuggerProcess = spawn(command, args, {
         cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
@@ -166,9 +167,8 @@ export class HistoryDebuggerPanel {
         this.debuggerProcess = undefined
       })
 
-
       // Give the process a moment to start
-      let attemp = 0;
+      let attemp = 0
       while (attemp < 10) {
         if (attemp > 0) {
           switch (getCurrentLanguage()) {
@@ -203,15 +203,18 @@ export class HistoryDebuggerPanel {
     }
   }
 
-  private async isPortListening(port: number, host = '127.0.0.1', timeoutMs = 1000): Promise<boolean> {
+  private async isPortListening(port: number, host = "127.0.0.1", timeoutMs = 1000): Promise<boolean> {
     return new Promise((resolve) => {
-      const socket = net.createConnection({ port, host });
-      const finish = (ok: boolean) => { socket.destroy(); resolve(ok); };
-      socket.setTimeout(timeoutMs);
-      socket.once('connect', () => finish(true));
-      socket.once('timeout', () => finish(false));
-      socket.once('error', () => finish(false));
-    });
+      const socket = net.createConnection({ port, host })
+      const finish = (ok: boolean) => {
+        socket.destroy()
+        resolve(ok)
+      }
+      socket.setTimeout(timeoutMs)
+      socket.once("connect", () => finish(true))
+      socket.once("timeout", () => finish(false))
+      socket.once("error", () => finish(false))
+    })
   }
 
   /**
@@ -276,7 +279,6 @@ export class HistoryDebuggerPanel {
    * Gets the debugger process configuration from VS Code settings
    */
   private async getDebuggerConfig(): Promise<{ command?: string; args?: string[]; options?: any }> {
-
     const language = getCurrentLanguage()
     const tdlv = this.resolveOnPath("tdlv")
     const baseArgs = ["--install", "--quiet"]
@@ -642,19 +644,13 @@ export class HistoryDebuggerPanel {
     console.log(`debuggerConfig: ${JSON.stringify(debuggerConfig)}`)
     if (debuggerConfig.command) {
       try {
-        await this.startDebugger(
-          debuggerConfig.command,
-          debuggerConfig.args,
-          debuggerConfig.options,
-        )
+        await this.startDebugger(debuggerConfig.command, debuggerConfig.args, debuggerConfig.options)
         console.log("Debugger process started successfully")
       } catch (error) {
         console.error("Failed to start background process:", error)
         // Show error and stop the debug session
-        await vscode.window.showErrorMessage(
-          `Failed to start background process: ${error}. Debugging will exit.`,
-        )
-        throw (error)
+        await vscode.window.showErrorMessage(`Failed to start background process: ${error}. Debugging will exit.`)
+        throw error
       }
     }
 
@@ -768,10 +764,10 @@ export class HistoryDebuggerPanel {
   }
 
   private resolveOnPath(command: string, env?: NodeJS.ProcessEnv): string {
-    const resolved = which.sync(command, { nothrow: true, path: (env?.PATH ?? process.env.PATH) });
+    const resolved = which.sync(command, { nothrow: true, path: env?.PATH ?? process.env.PATH })
     if (!resolved) {
-      throw new Error(`Command "${command}" not found on PATH`);
+      throw new Error(`Command "${command}" not found on PATH`)
     }
-    return resolved;
+    return resolved
   }
 }

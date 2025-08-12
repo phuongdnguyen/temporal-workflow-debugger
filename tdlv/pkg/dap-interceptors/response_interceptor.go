@@ -207,7 +207,7 @@ func (rir *ResponseInterceptingReader) handleStoppedEvent(event *dap.StoppedEven
 				rir.log.Printf("Stepping until workflow code, step %d", step)
 				client.NextRequest(event.Body.ThreadId)
 				// Wait for debugger state to settle down
-				time.Sleep(500 * time.Millisecond)
+				time.Sleep(200 * time.Millisecond)
 				nextResponse, _, err := client.GetNextResponseWithFiltering()
 				if err != nil {
 					rir.log.Printf("Can not step over, step %d, err: %v", step, err)

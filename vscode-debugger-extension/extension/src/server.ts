@@ -75,7 +75,7 @@ export class Server {
     return new this(server)
   }
 
-  constructor(protected readonly server: http.Server) { }
+  constructor(protected readonly server: http.Server) {}
 
   get url(): string {
     const addr = this.server.address()

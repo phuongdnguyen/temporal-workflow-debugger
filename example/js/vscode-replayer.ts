@@ -44,7 +44,3 @@ if (require.main === module) {
         process.exit(1);
     });
 }
-
-function sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
