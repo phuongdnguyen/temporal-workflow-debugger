@@ -26,7 +26,6 @@ class BreakpointManager {
     if (!breakpointThread) {
       const workerPath = path.resolve(__dirname, 'breakpoint-fetcher-thread.js');
       breakpointThread = new Worker(workerPath);
-      
       // Handle worker errors
       breakpointThread.on('error', (error) => {
         console.error('Breakpoint worker thread error:', error);
@@ -34,7 +33,8 @@ class BreakpointManager {
       
       breakpointThread.on('exit', (code) => {
         if (code !== 0) {
-          console.error(`Breakpoint worker thread stopped with exit code ${code}`);
+          // Need a cleaner way to shut down
+          console.info(`Breakpoint worker thread stopped with exit code ${code}`);
         }
       });
     }
@@ -98,15 +98,15 @@ class BreakpointManager {
     }
   }
   
-  /**
-   * Clean up worker thread
-   */
-  destroy() {
-    if (breakpointThread) {
-      breakpointThread.terminate();
-      breakpointThread = undefined;
-    }
-  }
+  // /**
+  //  * Clean up worker thread
+  //  */
+  // destroy() {
+  //   if (breakpointThread) {
+  //     breakpointThread.terminate();
+  //     breakpointThread = undefined;
+  //   }
+  // }
 
   /**
    * Send a highlight request to IDE to focus current event in UI.
@@ -192,8 +192,21 @@ function sendHighlightFromWorkflow(debuggerAddr, eventId) {
   }
 }
 
+
+/**
+ * Clean up worker thread
+ */
+function destroyWorkerThread() {
+  console.log("Destroying worker thread..")
+    if (breakpointThread) {
+      breakpointThread.terminate();
+      breakpointThread = undefined;
+    }
+}
+
 module.exports = {
   BreakpointManager,
   fetchBreakpointsFromWorkflow,
-  sendHighlightFromWorkflow
+  sendHighlightFromWorkflow,
+  destroyWorkerThread
 }; 

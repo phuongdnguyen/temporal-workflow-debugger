@@ -11,3 +11,5 @@ export class BreakpointManager {
 
 export function fetchBreakpointsFromWorkflow(debuggerAddr: string): number[]; 
 export function sendHighlightFromWorkflow(debuggerAddr: string, eventId: number): void;
+
+export function destroyWorkerThread(): void
