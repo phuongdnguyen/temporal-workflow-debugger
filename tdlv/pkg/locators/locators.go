@@ -18,25 +18,7 @@ func IsInAdapterCodeByPath(filePath string) bool {
 	// Check if this is user code (should NOT be considered adapter code)
 	workingDir := Pwd()
 	fmt.Printf("workingDir: %s\n", workingDir)
-	if IsUserCodeFile(filePath, workingDir) {
-		return false
-	}
-
-	// Check for adapter code patterns in the file path
-	return strings.Contains(filePath, "replayer-adapter-go/") ||
-		strings.Contains(filePath, "replayer.go") ||
-		strings.Contains(filePath, "outbound_interceptor.go") ||
-		strings.Contains(filePath, "inbound_interceptor.go") ||
-		// ALL Temporal SDK code (both versioned and non-versioned paths)
-		strings.Contains(filePath, "go.temporal.io/sdk/") ||
-		strings.Contains(filePath, "go.temporal.io/sdk@") ||
-		// Other GoDelve runtime/reflection code that might be encountered
-		strings.Contains(filePath, "/runtime/") ||
-		strings.Contains(filePath, "/reflect/") ||
-		strings.Contains(filePath, "replayer-adapter-python/") ||
-		strings.Contains(filePath, "replayer.py") ||
-		strings.Contains(filePath, "replayer-adapter-nodejs/") ||
-		strings.Contains(filePath, "replayer.ts")
+	return !IsUserCodeFile(filePath, workingDir)
 }
 
 // Pwd returns the current working directory
@@ -94,8 +76,31 @@ func IsUserCodeFile(filePath, workingDir string) bool {
 		strings.Contains(filePath, "go.temporal.io/sdk@") ||
 		strings.Contains(filePath, "@temporalio") ||
 		strings.Contains(filePath, "/runtime/") ||
+		strings.Contains(filePath, "<eval>") ||
 		strings.Contains(filePath, "<node_internals>") ||
+		strings.Contains(filePath, "workflow-interceptors.ts") ||
 		strings.Contains(filePath, "/reflect/") {
+		return false
+	}
+
+	if strings.Contains(filePath, "replayer-adapter-go/") ||
+		strings.Contains(filePath, "replayer.go") ||
+		strings.Contains(filePath, "outbound_interceptor.go") ||
+		strings.Contains(filePath, "inbound_interceptor.go") ||
+		// ALL Temporal SDK code (both versioned and non-versioned paths)
+		strings.Contains(filePath, "go.temporal.io/sdk/") ||
+		strings.Contains(filePath, "go.temporal.io/sdk@") ||
+		// Other GoDelve runtime/reflection code that might be encountered
+		strings.Contains(filePath, "/runtime/") ||
+		strings.Contains(filePath, "/reflect/") ||
+		strings.Contains(filePath, "replayer-adapter-python/") ||
+		strings.Contains(filePath, "replayer.py") ||
+		strings.Contains(filePath, "replayer-adapter-nodejs/") ||
+		strings.Contains(filePath, "workflow-interceptors.ts") ||
+		strings.Contains(filePath, "<eval>") ||
+		strings.Contains(filePath, "<node_internals>") ||
+		strings.Contains(filePath, "workflow-interceptors.ts") ||
+		strings.Contains(filePath, "replayer.ts") {
 		return false
 	}
 

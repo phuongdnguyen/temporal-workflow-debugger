@@ -235,7 +235,7 @@ func (rir *ResponseInterceptingReader) handleStoppedEvent(event *dap.StoppedEven
 				frame := getStacktraceResp.Body.StackFrames[0]
 				rir.log.Printf("Checking frame file: %s, line: %d", frame.Source.Path, frame.Line)
 				if !locators.IsInAdapterCodeByPath(frame.Source.Path) {
-					println("WORKFLOW FRAME")
+					rir.log.Println("Found workflow frame")
 					rir.log.Printf("Found user code frame file: %s, line: %d", frame.Source.Path, frame.Line)
 					b, err := json.Marshal(event)
 					if err != nil {
