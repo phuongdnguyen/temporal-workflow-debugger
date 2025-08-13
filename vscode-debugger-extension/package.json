@@ -64,10 +64,6 @@
             "Python with built-in debugger"
           ]
         },
-        "temporal.go": {
-          "type": "string",
-          "description": "Absolute path to custom go installation, default to system path if not set"
-        },
         "temporal.python": {
           "type": "string",
           "description": "Absolute path to custom python installation, default to system path if not set"

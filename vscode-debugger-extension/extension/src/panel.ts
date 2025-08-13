@@ -168,24 +168,30 @@ export class HistoryDebuggerPanel {
 
       // Give the process a moment to start
       let attemp = 0
+      let startingUpNotificationShown = false
       while (attemp < 10) {
         if (attemp > 0) {
           switch (getCurrentLanguage()) {
             case "go":
+              if (startingUpNotificationShown) { break }
               vscode.window.showInformationMessage("Installing dependencies: delve")
+              startingUpNotificationShown = true
               break
             case "python":
+              if (startingUpNotificationShown) { break }
               vscode.window.showInformationMessage("Installing dependencies: debugpy")
+              startingUpNotificationShown = true
               break
             case "typescript":
+              if (startingUpNotificationShown) { break }
               vscode.window.showInformationMessage("Installing dependencies: js-debug")
+              startingUpNotificationShown = true
               break
           }
         }
-        console.log("Sleeping")
         await new Promise((resolve) => setTimeout(resolve, 2000))
-        console.log("Sleeping done")
         if (await this.isPortListening(60000)) {
+          vscode.window.showInformationMessage("Debugger started")
           break
         }
         attemp++

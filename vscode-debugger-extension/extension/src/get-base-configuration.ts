@@ -1,7 +1,6 @@
 import * as vscode from "vscode"
 import { supportsESM } from "./is-esm"
 
-
 const getLanguageFromConfig = (): SupportedLanguage => {
   const config = vscode.workspace.getConfiguration("temporal")
   const language = config.get("debugLanguage") as SupportedLanguage
@@ -11,7 +10,9 @@ const getLanguageFromConfig = (): SupportedLanguage => {
 const getExecutableFromConfig = (): string => {
   const lang = getLanguageFromConfig()
   console.log(`getExecutableFromConfig, lang: ${lang}`)
-  console.log(`vscode.workspace.getConfiguration("temporal").get(lang) as string: ${vscode.workspace.getConfiguration("temporal").get(lang) as string}`)
+  console.log(
+    `vscode.workspace.getConfiguration("temporal").get(lang) as string: ${vscode.workspace.getConfiguration("temporal").get(lang) as string}`,
+  )
   return vscode.workspace.getConfiguration("temporal").get(lang) as string
 }
 
@@ -21,7 +22,6 @@ const nodeConfiguration = {
   name: "Launch Program",
   type: "node",
   request: "launch",
-  runtimeExecutable: getExecutableFromConfig() || "node",
   skipFiles: [
     "<node_internals>/**",
     "**/node_modules/@temporalio/worker/src/**",
@@ -38,7 +38,6 @@ const goConfiguration = {
   name: "Launch Program",
   type: "go",
   request: "attach",
-  runtimeExecutable: getExecutableFromConfig() || "go",
   mode: "remote",
   port: 60000,
   host: "127.0.0.1",
@@ -59,7 +58,7 @@ const pythonConfiguration = {
   name: "Launch Program",
   type: "debugpy",
   request: "launch",
-  python: getExecutableFromConfig() || "python",
+  // python: getExecutableFromConfig() || "python",
   connect: {
     host: "localhost",
     port: 60000,
@@ -67,7 +66,6 @@ const pythonConfiguration = {
   console: "integratedTerminal",
   internalConsoleOptions: "openOnSessionStart",
 } satisfies vscode.DebugConfiguration
-
 
 export const getBaseConfiguration = async (): Promise<vscode.DebugConfiguration> => {
   const language = getLanguageFromConfig()
@@ -79,7 +77,8 @@ export const getBaseConfiguration = async (): Promise<vscode.DebugConfiguration>
       const runtimeArgs = (await supportsESM())
         ? ["--loader=ts-node/esm"]
         : ["--nolazy", "-r", "ts-node/register/transpile-only"]
-      return { ...nodeConfiguration, runtimeArgs }
+      // reload executable when user restart the debug "project"
+      return { ...nodeConfiguration, runtimeArgs, runtimeExecutable: getExecutableFromConfig() || "node" }
 
     case "go":
       return { ...goConfiguration }
@@ -88,7 +87,8 @@ export const getBaseConfiguration = async (): Promise<vscode.DebugConfiguration>
       return { ...javaConfiguration }
 
     case "python":
-      return { ...pythonConfiguration }
+      // reload executable when user restart the debug "project"
+      return { ...pythonConfiguration, python: getExecutableFromConfig() || "python" }
 
     default:
       throw new Error(`Unsupported language: ${language}`)
