@@ -18,6 +18,15 @@ const getExecutableFromConfig = (): string => {
 
 type SupportedLanguage = "typescript" | "go" | "java" | "python"
 
+export function getDependencies(lang: SupportedLanguage): string {
+  switch (lang) {
+    case "go": return "delve"
+    case "python": return "debugpy"
+    case "typescript": return "vscode-js-debug"
+    default: return ""
+  }
+}
+
 const nodeConfiguration = {
   name: "Launch Program",
   type: "node",

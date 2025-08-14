@@ -7,7 +7,7 @@ import { historyFromJSON } from "@temporalio/common/lib/proto-utils"
 import { temporal } from "@temporalio/proto"
 import { Connection, LOCAL_TARGET } from "@temporalio/client"
 import { Server } from "./server"
-import { getBaseConfiguration, getCurrentLanguage } from "./get-base-configuration"
+import { getBaseConfiguration, getCurrentLanguage, getDependencies } from "./get-base-configuration"
 import which from "which"
 import net from "node:net"
 
@@ -137,7 +137,7 @@ export class HistoryDebuggerPanel {
       console.log(`Starting debugger process: ${command} ${args.join(" ")}`)
       console.log(`Debugger process cwd: ${vscode.workspace.workspaceFolders?.[0]?.uri.fsPath}`)
       vscode.window.showInformationMessage(
-        "Starting the debugging process. If this is the first time, the debugger will install neccessary depencies based on your language configuration.",
+        "Starting the debugging process. If this is the first time, you will be prompted to allow installation of dependencies.",
       )
 
       this.debuggerProcess = spawn(command, args, {
@@ -174,17 +174,17 @@ export class HistoryDebuggerPanel {
           switch (getCurrentLanguage()) {
             case "go":
               if (startingUpNotificationShown) { break }
-              vscode.window.showInformationMessage("Installing dependencies: delve")
+              vscode.window.showInformationMessage("Waiting for debugger to start")
               startingUpNotificationShown = true
               break
             case "python":
               if (startingUpNotificationShown) { break }
-              vscode.window.showInformationMessage("Installing dependencies: debugpy")
+              vscode.window.showInformationMessage("Waiting for debugger to start")
               startingUpNotificationShown = true
               break
             case "typescript":
               if (startingUpNotificationShown) { break }
-              vscode.window.showInformationMessage("Installing dependencies: js-debug")
+              vscode.window.showInformationMessage("Waiting for debugger to start")
               startingUpNotificationShown = true
               break
           }
@@ -206,6 +206,73 @@ export class HistoryDebuggerPanel {
       console.error(`Failed to start debugger process: ${error}`)
       throw error
     }
+  }
+
+  private async runChildProcess(command: string, args: string[] = [], options: any = {}): Promise<boolean> {
+    try {
+      console.log(`Starting child process: ${command} ${args.join(" ")}`)
+      console.log(`child process cwd: ${vscode.workspace.workspaceFolders?.[0]?.uri.fsPath}`)
+
+      let childProcess = spawn(command, args, {
+        cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+        env: { ...process.env, ...options.env },
+        stdio: ["ignore", "pipe", "pipe"], // Capture stdout and stderr
+        ...options,
+      })
+
+      // Log output from the background process
+      childProcess.stdout?.on("data", (data) => {
+        console.log(`child process stdout: ${data.toString()}`)
+      })
+
+      childProcess.stderr?.on("data", (data) => {
+        console.log(`child process stderr: ${data.toString()}`)
+      })
+
+      childProcess.on("error", (error) => {
+        console.error(`child process error: ${error.message}`)
+        vscode.window.showErrorMessage(`child process failed: ${error.message}`)
+      })
+      const timeoutMs = 10000
+      const { timedOut, code } = await this.waitForProcessExit(childProcess, timeoutMs)
+
+      if (timedOut) {
+        console.log(`debuggerDepCheck timed out after ${timeoutMs}ms; killing process`)
+        try { childProcess.kill("SIGKILL") } catch { }
+        return false
+      }
+
+      return code === 0
+    } catch (error) {
+      console.error(`Failed to start child process: ${error}`)
+      throw error
+    }
+  }
+
+
+  private waitForProcessExit(child: ChildProcess, timeoutMs: number): Promise<{ timedOut: boolean; code: number | null; signal: NodeJS.Signals | null }> {
+    return new Promise((resolve) => {
+      const onExit = (code: number | null, signal: NodeJS.Signals | null) => {
+        cleanup()
+        resolve({ timedOut: false, code, signal })
+      }
+      const onError = () => {
+        cleanup()
+        resolve({ timedOut: false, code: 1, signal: null })
+      }
+      const cleanup = () => {
+        clearTimeout(timer)
+        child.off("exit", onExit)
+        child.off("error", onError)
+      }
+      const timer = setTimeout(() => {
+        cleanup()
+        resolve({ timedOut: true, code: null, signal: null })
+      }, timeoutMs)
+
+      child.once("exit", onExit)
+      child.once("error", onError)
+    })
   }
 
   private async isPortListening(port: number, host = "127.0.0.1", timeoutMs = 1000): Promise<boolean> {
@@ -283,27 +350,57 @@ export class HistoryDebuggerPanel {
   /**
    * Gets the debugger process configuration from VS Code settings
    */
-  private async getDebuggerConfig(): Promise<{ command?: string; args?: string[]; options?: any }> {
+  private async getDebuggerConfig(): Promise<{ command?: string; args?: string[]; options?: any }[]> {
     const language = getCurrentLanguage()
     const tdlv = this.resolveOnPath("tdlv")
-    const baseArgs = ["--install", "--quiet"]
+    const baseArgs = ["--install"]
     switch (language) {
       case "python":
         const entryPoint = await this.getReplayerEntrypoint()
-        return {
-          command: tdlv,
-          args: ["--lang=python", `--entrypoint=${entryPoint}`].concat(baseArgs),
-        }
+        return [
+          {
+            command: tdlv,
+            args: ["--lang=python", `--entrypoint=${entryPoint}`],
+          },
+          {
+            command: tdlv,
+            args: ["--lang=python", `--entrypoint=${entryPoint}`].concat(baseArgs),
+          },
+          {
+            command: tdlv,
+            args: ["--lang=python", `--entrypoint=${entryPoint}`, "--start=true"].concat(baseArgs),
+          },
+        ]
       case "typescript":
-        return {
-          command: tdlv,
-          args: ["--lang=js"].concat(baseArgs),
-        }
+        return [
+          {
+            command: tdlv,
+            args: ["--lang=js"],
+          },
+          {
+            command: tdlv,
+            args: ["--lang=js"].concat(baseArgs),
+          },
+          {
+            command: tdlv,
+            args: ["--lang=js", "--start=true"].concat(baseArgs),
+          }
+        ]
       default:
-        return {
-          command: tdlv,
-          args: ["--lang=go"].concat(baseArgs),
-        }
+        return [
+          {
+            command: tdlv,
+            args: ["--lang=go"],
+          },
+          {
+            command: tdlv,
+            args: ["--lang=go"].concat(baseArgs),
+          },
+          {
+            command: tdlv,
+            args: ["--lang=go", "--start=true"].concat(baseArgs),
+          }
+        ]
     }
   }
 
@@ -647,12 +744,40 @@ export class HistoryDebuggerPanel {
     // Start debugger process
     const debuggerConfig = await this.getDebuggerConfig()
     console.log(`debuggerConfig: ${JSON.stringify(debuggerConfig)}`)
-    if (debuggerConfig.command) {
+    // Check for dependencies installed
+    if (debuggerConfig[0].command) {
       try {
-        await this.startDebugger(debuggerConfig.command, debuggerConfig.args, debuggerConfig.options)
+        const dependenciesCheckSuccess = await this.runChildProcess(debuggerConfig[0].command, debuggerConfig[0].args, debuggerConfig[0].options)
+        if (!dependenciesCheckSuccess) {
+          const shouldInstall = await this.showConfirmModal()
+          if (shouldInstall) {
+            if (debuggerConfig[1].command) {
+              vscode.window.showInformationMessage("Installing required dependencies")
+              const dependenciesInstalled = await this.runChildProcess(debuggerConfig[1].command, debuggerConfig[1].args, debuggerConfig[1].options)
+              if (!dependenciesInstalled) {
+                throw new Error(`Installing ${getDependencies(language)} failed, try to install it manually instead`)
+              } else {
+                vscode.window.showInformationMessage("Dependencies installed")
+              }
+            }
+          } else {
+            console.log("User refused to install dependencies, exit now.")
+            return
+          }
+        }
+      } catch (error) {
+        console.error("Failed to check dependencies for debugger:", error)
+        // Show error and stop the debug session
+        throw error
+      }
+    }
+    // Start the debugger itself
+    if (debuggerConfig[2].command) {
+      try {
+        await this.startDebugger(debuggerConfig[2].command, debuggerConfig[2].args, debuggerConfig[2].options)
         console.log("Debugger process started successfully")
       } catch (error) {
-        console.error("Failed to start background process:", error)
+        console.error("Failed to start debugger process:", error)
         // Show error and stop the debug session
         await vscode.window.showErrorMessage(`Failed to start background process: ${error}. Debugging will exit.`)
         throw error
@@ -706,6 +831,7 @@ export class HistoryDebuggerPanel {
         throw new Error(`Unsupported language: ${language}`)
     }
 
+
     try {
       console.log("Final debug configuration:", JSON.stringify(debugConfig, null, 2))
       await vscode.debug.startDebugging(workspace, debugConfig)
@@ -715,6 +841,20 @@ export class HistoryDebuggerPanel {
       await vscode.window.showErrorMessage(`Failed to start ${language} debug session: ${err}\n\n${requirements}`)
       throw err
     }
+  }
+
+  private async showConfirmModal(): Promise<boolean> {
+    const yes: vscode.MessageItem = { title: 'Yes' };
+    const no: vscode.MessageItem = { title: 'No', isCloseAffordance: true }; // Esc = No
+
+    const picked = await vscode.window.showInformationMessage(
+      'Install missing dependencies?',
+      { modal: true },
+      yes,
+      no
+    );
+
+    return picked == yes
   }
 
   private async handleLoadHistoryOnly(history: temporal.api.history.v1.IHistory, originalJSON?: any): Promise<void> {
