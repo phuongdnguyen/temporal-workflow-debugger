@@ -173,17 +173,23 @@ export class HistoryDebuggerPanel {
         if (attemp > 0) {
           switch (getCurrentLanguage()) {
             case "go":
-              if (startingUpNotificationShown) { break }
+              if (startingUpNotificationShown) {
+                break
+              }
               vscode.window.showInformationMessage("Waiting for debugger to start")
               startingUpNotificationShown = true
               break
             case "python":
-              if (startingUpNotificationShown) { break }
+              if (startingUpNotificationShown) {
+                break
+              }
               vscode.window.showInformationMessage("Waiting for debugger to start")
               startingUpNotificationShown = true
               break
             case "typescript":
-              if (startingUpNotificationShown) { break }
+              if (startingUpNotificationShown) {
+                break
+              }
               vscode.window.showInformationMessage("Waiting for debugger to start")
               startingUpNotificationShown = true
               break
@@ -238,7 +244,9 @@ export class HistoryDebuggerPanel {
 
       if (timedOut) {
         console.log(`debuggerDepCheck timed out after ${timeoutMs}ms; killing process`)
-        try { childProcess.kill("SIGKILL") } catch { }
+        try {
+          childProcess.kill("SIGKILL")
+        } catch {}
         return false
       }
 
@@ -249,8 +257,10 @@ export class HistoryDebuggerPanel {
     }
   }
 
-
-  private waitForProcessExit(child: ChildProcess, timeoutMs: number): Promise<{ timedOut: boolean; code: number | null; signal: NodeJS.Signals | null }> {
+  private waitForProcessExit(
+    child: ChildProcess,
+    timeoutMs: number,
+  ): Promise<{ timedOut: boolean; code: number | null; signal: NodeJS.Signals | null }> {
     return new Promise((resolve) => {
       const onExit = (code: number | null, signal: NodeJS.Signals | null) => {
         cleanup()
@@ -348,9 +358,9 @@ export class HistoryDebuggerPanel {
   }
 
   /**
-   * Gets the debugger process configuration from VS Code settings
+   * Gets the tdlv process configuration from VS Code settings
    */
-  private async getDebuggerConfig(): Promise<{ command?: string; args?: string[]; options?: any }[]> {
+  private async getTdlvConfigs(): Promise<{ command?: string; args?: string[]; options?: any }[]> {
     const language = getCurrentLanguage()
     const tdlv = this.resolveOnPath("tdlv")
     const baseArgs = ["--install"]
@@ -384,7 +394,7 @@ export class HistoryDebuggerPanel {
           {
             command: tdlv,
             args: ["--lang=js", "--start=true"].concat(baseArgs),
-          }
+          },
         ]
       default:
         return [
@@ -399,7 +409,7 @@ export class HistoryDebuggerPanel {
           {
             command: tdlv,
             args: ["--lang=go", "--start=true"].concat(baseArgs),
-          }
+          },
         ]
     }
   }
@@ -742,18 +752,30 @@ export class HistoryDebuggerPanel {
     const baseConfig = await getBaseConfiguration()
 
     // Start debugger process
-    const debuggerConfig = await this.getDebuggerConfig()
-    console.log(`debuggerConfig: ${JSON.stringify(debuggerConfig)}`)
+    const tdlvConfigs = await this.getTdlvConfigs()
+    console.log(`debuggerConfig: ${JSON.stringify(tdlvConfigs)}`)
+    const dependenciesCheckConfig = tdlvConfigs[0]
+    const dependenciesInstallationConfig = tdlvConfigs[1]
+    const startDebuggerConfig = tdlvConfigs[2]
+
     // Check for dependencies installed
-    if (debuggerConfig[0].command) {
+    if (dependenciesCheckConfig.command) {
       try {
-        const dependenciesCheckSuccess = await this.runChildProcess(debuggerConfig[0].command, debuggerConfig[0].args, debuggerConfig[0].options)
+        const dependenciesCheckSuccess = await this.runChildProcess(
+          dependenciesCheckConfig.command,
+          dependenciesCheckConfig.args,
+          dependenciesCheckConfig.options,
+        )
         if (!dependenciesCheckSuccess) {
           const shouldInstall = await this.showConfirmModal()
           if (shouldInstall) {
-            if (debuggerConfig[1].command) {
+            if (dependenciesInstallationConfig.command) {
               vscode.window.showInformationMessage("Installing required dependencies")
-              const dependenciesInstalled = await this.runChildProcess(debuggerConfig[1].command, debuggerConfig[1].args, debuggerConfig[1].options)
+              const dependenciesInstalled = await this.runChildProcess(
+                dependenciesInstallationConfig.command,
+                dependenciesInstallationConfig.args,
+                dependenciesInstallationConfig.options,
+              )
               if (!dependenciesInstalled) {
                 throw new Error(`Installing ${getDependencies(language)} failed, try to install it manually instead`)
               } else {
@@ -772,9 +794,9 @@ export class HistoryDebuggerPanel {
       }
     }
     // Start the debugger itself
-    if (debuggerConfig[2].command) {
+    if (startDebuggerConfig.command) {
       try {
-        await this.startDebugger(debuggerConfig[2].command, debuggerConfig[2].args, debuggerConfig[2].options)
+        await this.startDebugger(startDebuggerConfig.command, startDebuggerConfig.args, startDebuggerConfig.options)
         console.log("Debugger process started successfully")
       } catch (error) {
         console.error("Failed to start debugger process:", error)
@@ -831,7 +853,6 @@ export class HistoryDebuggerPanel {
         throw new Error(`Unsupported language: ${language}`)
     }
 
-
     try {
       console.log("Final debug configuration:", JSON.stringify(debugConfig, null, 2))
       await vscode.debug.startDebugging(workspace, debugConfig)
@@ -844,15 +865,10 @@ export class HistoryDebuggerPanel {
   }
 
   private async showConfirmModal(): Promise<boolean> {
-    const yes: vscode.MessageItem = { title: 'Yes' };
-    const no: vscode.MessageItem = { title: 'No', isCloseAffordance: true }; // Esc = No
+    const yes: vscode.MessageItem = { title: "Yes" }
+    const no: vscode.MessageItem = { title: "No", isCloseAffordance: true } // Esc = No
 
-    const picked = await vscode.window.showInformationMessage(
-      'Install missing dependencies?',
-      { modal: true },
-      yes,
-      no
-    );
+    const picked = await vscode.window.showInformationMessage("Install missing dependencies?", { modal: true }, yes, no)
 
     return picked == yes
   }

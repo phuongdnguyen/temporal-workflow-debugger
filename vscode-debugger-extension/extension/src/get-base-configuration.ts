@@ -20,10 +20,14 @@ type SupportedLanguage = "typescript" | "go" | "java" | "python"
 
 export function getDependencies(lang: SupportedLanguage): string {
   switch (lang) {
-    case "go": return "delve"
-    case "python": return "debugpy"
-    case "typescript": return "vscode-js-debug"
-    default: return ""
+    case "go":
+      return "delve"
+    case "python":
+      return "debugpy"
+    case "typescript":
+      return "vscode-js-debug"
+    default:
+      return ""
   }
 }
 
@@ -87,7 +91,11 @@ export const getBaseConfiguration = async (): Promise<vscode.DebugConfiguration>
         ? ["--loader=ts-node/esm"]
         : ["--nolazy", "-r", "ts-node/register/transpile-only"]
       // reload executable when user restart the debug "project"
-      return { ...nodeConfiguration, runtimeArgs, runtimeExecutable: getExecutableFromConfig() || "node" }
+      return {
+        ...nodeConfiguration,
+        runtimeArgs,
+        runtimeExecutable: getExecutableFromConfig() || "node",
+      }
 
     case "go":
       return { ...goConfiguration }
