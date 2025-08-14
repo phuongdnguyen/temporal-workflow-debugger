@@ -39,28 +39,32 @@ func main() {
 	// Command-line flags
 	// -----------------------------------------------
 	var showHelp bool
-	flag.BoolVar(&showHelp, "help", false, "tdlv is a temporal workflow debugger, provide ability to debug temporal workflow from history file from workflows in multiple programming languages (alias: -h)")
-	var proxyPort int
-	flag.IntVar(&proxyPort, "p", 60000, "port for tdlv")
-	var lang string
-	flag.StringVar(&lang, "lang", "go", "language to use for the workflow, available options: [go, python, js]")
-	var pythonPath string
-	flag.StringVar(&pythonPath, "python", "python", "path to the python executable")
+	flag.BoolVar(&showHelp, "help", false, "Tdlv (Temporal delve) is a temporal workflow debugger, provide ability to focus on user workflow code in debug sessions (alias: -h)")
 
-	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "Tdlv is a temporal workflow debugger\n\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [options]\n\n", os.Args[0])
-		flag.PrintDefaults()
-	}
+	var proxyPort int
+	flag.IntVar(&proxyPort, "p", 60000, "port for remote debugging")
+
+	var lang string
+	flag.StringVar(&lang, "lang", "", "language to use for the workflow, available options: [go, python, js]")
+
 	var install bool
 	flag.BoolVar(&install, "install", false, "auto-install missing language debuggers (requires user confirmation)")
-	var quiet bool
-	flag.BoolVar(&quiet, "quiet", false, "suppress dependency check messages (for IDE integration)")
 
 	var entryPoint string
 	flag.StringVar(&entryPoint, "entrypoint", "", "launch entry point for the debugger")
 
+	var start bool
+	flag.BoolVar(&start, "start", false, "start debugger")
+
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(), "Tdlv (Temporal delve) is a temporal workflow debugger\n\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [options]\n\n", os.Args[0])
+		flag.PrintDefaults()
+	}
+
 	flag.Parse()
+
+	requireFlags("lang")
 
 	if showHelp {
 		flag.Usage()
@@ -73,42 +77,42 @@ func main() {
 	// Check and handle dependencies based on language
 	switch lang {
 	case "go":
-		if err := ensureDelveAvailable(install, quiet); err != nil {
-			if !quiet {
-				log.Printf("Delve dependency issue: %v", err)
-				printDelveInstallationGuidance()
-			}
+		if err := ensureDelveAvailable(install); err != nil {
+			log.Printf("Delve dependency issue: %v", err)
+			printDelveInstallationGuidance()
 			os.Exit(1)
 		}
-		startDelve(debuggerStopCh)
+		if start {
+			startDelve(debuggerStopCh)
+		}
 	case "python":
-		if err := ensureDebugPyAvailable(install, quiet); err != nil {
-			if !quiet {
-				log.Printf("DebugPy dependency issue: %v", err)
-				printDebugPyInstallationGuidance()
-			}
+		if err := ensureDebugPyAvailable(install); err != nil {
+			log.Printf("DebugPy dependency issue: %v", err)
+			printDebugPyInstallationGuidance()
 			os.Exit(1)
 		}
-		startDebugPy(debuggerStopCh)
+		if start {
+			startDebugPy(debuggerStopCh)
+		}
 	case "js":
-		if err := ensureJsDebugAvailable(install, quiet); err != nil {
-			if !quiet {
-				log.Printf("JS Debug dependency issue: %v", err)
-				printJsDebugInstallationGuidance()
-			}
+		if err := ensureJsDebugAvailable(install); err != nil {
+			log.Printf("JS Debug dependency issue: %v", err)
+			printJsDebugInstallationGuidance()
 			os.Exit(1)
 		}
-		startJsDebug(debuggerStopCh)
+		// if start {
+		// 	startJsDebug(debuggerStopCh)
+		// }
 	default:
-		if !quiet {
-			log.Printf("Running with lang %s, expect a language debugger to be started on port 2345", lang)
-		}
+		log.Fatalf("Unknown lang: %s", lang)
+	}
+
+	if !start {
+		return
 	}
 
 	addr := fmt.Sprintf(":%d", proxyPort)
-	if !quiet {
-		log.Printf("Starting tdlv on %s", addr)
-	}
+	log.Printf("Starting tdlv on %s", addr)
 	proxyListener, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatal(fmt.Errorf("could not start tdlv: %w", err))
@@ -121,12 +125,11 @@ func main() {
 
 	go func() {
 		<-ch
-		if !quiet {
-			log.Println("Received shutdown signal...")
-			log.Println("Shutting down...")
-		}
+		log.Println("Received shutdown signal...")
+		log.Println("Shutting down...")
 		_ = proxyListener.Close()
 		debuggerStopCh <- struct{}{}
+		<-debuggerStopCh
 		os.Exit(0)
 	}()
 
@@ -134,9 +137,7 @@ func main() {
 	for {
 		clientTCP, err := proxyListener.Accept()
 		if err != nil {
-			if !quiet {
-				log.Printf("Error accepting connection: %v", err)
-			}
+			log.Printf("Error accepting connection: %v", err)
 			continue
 		}
 
@@ -144,28 +145,22 @@ func main() {
 		// Don't signal shutdown on disconnect - allow reconnections
 		go func() {
 			handlers.Handle(clientTCP)
-			if !quiet {
-				log.Printf("Client connection ended, but server continues running for reconnections")
-			}
+			log.Printf("Client connection ended, but server continues running for reconnections")
 		}()
 	}
 }
 
 // ensureDelveAvailable checks if delve is available and optionally installs it
-func ensureDelveAvailable(autoInstall, quiet bool) error {
+func ensureDelveAvailable(autoInstall bool) error {
 	// First check if dlv is available in PATH
 	if _, err := exec.LookPath("dlv"); err == nil {
-		if !quiet {
-			log.Println("Found delve (dlv) in PATH")
-		}
+		log.Println("Found delve (dlv) in PATH")
 		return nil
 	}
 
 	// Check if delve is available as go-delve/delve
 	if _, err := exec.LookPath("go-delve"); err == nil {
-		if !quiet {
-			log.Println("Found delve (go-delve) in PATH")
-		}
+		log.Println("Found delve (go-delve) in PATH")
 		return nil
 	}
 
@@ -174,29 +169,18 @@ func ensureDelveAvailable(autoInstall, quiet bool) error {
 		return fmt.Errorf("delve debugger not found in PATH")
 	}
 
-	// Auto-install with user confirmation (unless in quiet mode)
-	if !quiet {
-		fmt.Print("Delve debugger not found. Install it automatically? (y/N): ")
-		var response string
-		fmt.Scanln(&response)
-		if strings.ToLower(response) != "y" && strings.ToLower(response) != "yes" {
-			return fmt.Errorf("delve installation declined by user")
-		}
-	}
-
-	return installDelve(quiet)
+	fmt.Print("Delve debugger not found, will install it. ")
+	return installDelve()
 }
 
 // installDelve installs delve using go install
-func installDelve(quiet bool) error {
-	if !quiet {
-		log.Println("Installing delve...")
-	}
+func installDelve() error {
+	log.Println("Installing delve...")
 
 	// Check if Go is available
 	goPath, err := exec.LookPath("go")
 	if err != nil {
-		return fmt.Errorf("Go is required to install delve, but 'go' command not found in PATH")
+		return fmt.Errorf("go is required to install delve, but 'go' command not found in PATH")
 	}
 
 	// Install delve
@@ -208,20 +192,16 @@ func installDelve(quiet bool) error {
 		return fmt.Errorf("failed to install delve: %w", err)
 	}
 
-	if !quiet {
-		log.Println("Delve installed successfully")
-	}
+	log.Println("Delve installed successfully")
 	return nil
 }
 
 // ensureDebugPyAvailable checks if debugpy is available
-func ensureDebugPyAvailable(autoInstall, quiet bool) error {
+func ensureDebugPyAvailable(autoInstall bool) error {
 	// Check if python and debugpy are available
 	cmd := exec.Command("python", "-c", "import debugpy")
 	if err := cmd.Run(); err == nil {
-		if !quiet {
-			log.Println("Found debugpy for Python")
-		}
+		log.Println("Found debugpy for Python")
 		return nil
 	}
 
@@ -230,15 +210,8 @@ func ensureDebugPyAvailable(autoInstall, quiet bool) error {
 	}
 
 	// Auto-install debugpy
-	if !quiet {
-		fmt.Print("DebugPy not found. Install it automatically? (y/N): ")
-		var response string
-		fmt.Scanln(&response)
-		if strings.ToLower(response) != "y" && strings.ToLower(response) != "yes" {
-			return fmt.Errorf("debugpy installation declined by user")
-		}
-		log.Println("Installing debugpy...")
-	}
+	fmt.Print("DebugPy not found, will install it")
+	log.Println("Installing debugpy...")
 
 	cmd = exec.Command("python", "-m", "pip", "install", "debugpy")
 	cmd.Stdout = os.Stdout
@@ -248,17 +221,15 @@ func ensureDebugPyAvailable(autoInstall, quiet bool) error {
 		return fmt.Errorf("failed to install debugpy: %w", err)
 	}
 
-	if !quiet {
-		log.Println("DebugPy installed successfully")
-	}
+	log.Println("DebugPy installed successfully")
 	return nil
 }
 
 // ensureJsDebugAvailable checks if Node.js and js-debug-dap are available
-func ensureJsDebugAvailable(autoInstall, quiet bool) error {
+func ensureJsDebugAvailable(autoInstall bool) error {
 	// Check if node is available
 	if _, err := exec.LookPath("node"); err != nil {
-		return fmt.Errorf("Node.js not found in PATH (required for JavaScript debugging)")
+		return fmt.Errorf("node not found in PATH (required for JavaScript/Typescript debugging)")
 	}
 
 	// Check if js-debug-dap is already set up
@@ -266,9 +237,7 @@ func ensureJsDebugAvailable(autoInstall, quiet bool) error {
 	dapServerPath := filepath.Join(jsDebugPath, "js-debug", "src", "dapDebugServer.js")
 
 	if _, err := os.Stat(dapServerPath); err == nil {
-		if !quiet {
-			log.Printf("Found js-debug-dap at %s", jsDebugPath)
-		}
+		log.Printf("Found js-debug-dap at %s", jsDebugPath)
 		return nil
 	}
 
@@ -277,17 +246,8 @@ func ensureJsDebugAvailable(autoInstall, quiet bool) error {
 		return fmt.Errorf("js-debug-dap not found (required for JavaScript debugging)")
 	}
 
-	// Auto-install with user confirmation (unless in quiet mode)
-	if !quiet {
-		fmt.Print("JS Debug adapter not found. Download and install it automatically? (y/N): ")
-		var response string
-		fmt.Scanln(&response)
-		if strings.ToLower(response) != "y" && strings.ToLower(response) != "yes" {
-			return fmt.Errorf("js-debug-dap installation declined by user")
-		}
-	}
-
-	return setupJsDebug(quiet)
+	fmt.Print("JS Debug adapter not found. Will download and install it. ")
+	return setupJsDebug()
 }
 
 // getJsDebugPath returns the path where js-debug-dap should be installed
@@ -301,12 +261,10 @@ func getJsDebugPath() string {
 }
 
 // setupJsDebug downloads and sets up the js-debug-dap package
-func setupJsDebug(quiet bool) error {
+func setupJsDebug() error {
 	jsDebugPath := getJsDebugPath()
 
-	if !quiet {
-		log.Printf("Setting up js-debug-dap in %s", jsDebugPath)
-	}
+	log.Printf("Setting up js-debug-dap in %s", jsDebugPath)
 
 	// Create cache directory
 	if err := os.MkdirAll(jsDebugPath, 0755); err != nil {
@@ -315,12 +273,12 @@ func setupJsDebug(quiet bool) error {
 
 	// Download the package
 	tarGzPath := filepath.Join(jsDebugPath, "js-debug-dap.tar.gz")
-	if err := downloadJsDebug(jsDebugURL, tarGzPath, quiet); err != nil {
+	if err := downloadJsDebug(jsDebugURL, tarGzPath); err != nil {
 		return fmt.Errorf("failed to download js-debug-dap: %w", err)
 	}
 
 	// Extract the package
-	if err := extractTarGz(tarGzPath, jsDebugPath, quiet); err != nil {
+	if err := extractTarGz(tarGzPath, jsDebugPath); err != nil {
 		return fmt.Errorf("failed to extract js-debug-dap: %w", err)
 	}
 
@@ -328,22 +286,18 @@ func setupJsDebug(quiet bool) error {
 	os.Remove(tarGzPath)
 
 	// Verify the installation
-	dapServerPath := filepath.Join(jsDebugPath, "out", "src", "dapDebugServer.js")
+	dapServerPath := filepath.Join(jsDebugPath, "js-debug", "src", "dapDebugServer.js")
 	if _, err := os.Stat(dapServerPath); err != nil {
-		return fmt.Errorf("js-debug-dap installation verification failed: dapDebugServer.js not found")
+		return fmt.Errorf("js-debug-dap installation verification failed: dapDebugServer.js not found in path %s", dapServerPath)
 	}
 
-	if !quiet {
-		log.Println("js-debug-dap installed successfully")
-	}
+	log.Println("js-debug-dap installed successfully")
 	return nil
 }
 
 // downloadJsDebug downloads the js-debug-dap package with progress indication
-func downloadJsDebug(url, filepath string, quiet bool) error {
-	if !quiet {
-		log.Printf("Downloading js-debug-dap from %s", url)
-	}
+func downloadJsDebug(url, filepath string) error {
+	log.Printf("Downloading js-debug-dap from %s", url)
 
 	// Create HTTP client with timeout
 	client := &http.Client{
@@ -377,24 +331,19 @@ func downloadJsDebug(url, filepath string, quiet bool) error {
 	}
 	defer out.Close()
 
-	// Copy with progress indication (if not quiet)
-	if quiet {
-		_, err = io.Copy(out, resp.Body)
-	} else {
-		// Simple progress indication
-		contentLength := resp.ContentLength
-		if contentLength > 0 {
-			log.Printf("Downloading %d bytes...", contentLength)
-		}
+	// Copy with progress indication
 
-		// Use a simple counter for progress
-		counter := &progressCounter{total: contentLength, quiet: quiet}
-		_, err = io.Copy(out, io.TeeReader(resp.Body, counter))
-
-		if !quiet {
-			fmt.Println() // New line after progress
-		}
+	// Simple progress indication
+	contentLength := resp.ContentLength
+	if contentLength > 0 {
+		log.Printf("Downloading %d bytes...", contentLength)
 	}
+
+	// Use a simple counter for progress
+	counter := &progressCounter{total: contentLength}
+	_, err = io.Copy(out, io.TeeReader(resp.Body, counter))
+
+	fmt.Println() // New line after progress
 
 	return err
 }
@@ -403,7 +352,6 @@ func downloadJsDebug(url, filepath string, quiet bool) error {
 type progressCounter struct {
 	downloaded int64
 	total      int64
-	quiet      bool
 	lastPrint  time.Time
 }
 
@@ -411,8 +359,8 @@ func (pc *progressCounter) Write(p []byte) (int, error) {
 	n := len(p)
 	pc.downloaded += int64(n)
 
-	// Print progress every second (if not quiet)
-	if !pc.quiet && time.Since(pc.lastPrint) > time.Second {
+	// Print progress every second
+	if time.Since(pc.lastPrint) > time.Second {
 		if pc.total > 0 {
 			progress := float64(pc.downloaded) / float64(pc.total) * 100
 			fmt.Printf("\rProgress: %.1f%% (%d/%d bytes)", progress, pc.downloaded, pc.total)
@@ -426,10 +374,8 @@ func (pc *progressCounter) Write(p []byte) (int, error) {
 }
 
 // extractTarGz extracts a tar.gz file to the specified directory
-func extractTarGz(src, dest string, quiet bool) error {
-	if !quiet {
-		log.Printf("Extracting %s to %s", src, dest)
-	}
+func extractTarGz(src, dest string) error {
+	log.Printf("Extracting %s to %s", src, dest)
 
 	// Open the tar.gz file
 	file, err := os.Open(src)
@@ -491,9 +437,7 @@ func extractTarGz(src, dest string, quiet bool) error {
 
 		default:
 			// Skip other file types (symlinks, etc.)
-			if !quiet {
-				log.Printf("Skipping file type %c: %s", header.Typeflag, header.Name)
-			}
+			log.Printf("Skipping file type %c: %s", header.Typeflag, header.Name)
 		}
 	}
 
@@ -563,7 +507,7 @@ func printJsDebugInstallationGuidance() {
 	fmt.Println("\nFor more details: https://github.com/microsoft/vscode-js-debug")
 }
 
-func startDelve(stopCh <-chan struct{}) {
+func startDelve(stopCh chan struct{}) {
 	// Listen on TCP port for Delve server
 	l, err := net.Listen("tcp", ":2345")
 	if err != nil {
@@ -619,12 +563,13 @@ func startDelve(stopCh <-chan struct{}) {
 		}
 		log.Println("Delve headless server stopped")
 		if err := l.Close(); err != nil {
-			log.Fatal(fmt.Errorf("error closing listener: %w", err))
+			log.Fatal(fmt.Errorf("error closing delve net listener: %w", err))
 		}
+		stopCh <- struct{}{}
 	}()
 }
 
-func startDebugPy(stopCh <-chan struct{}) {
+func startDebugPy(stopCh chan struct{}) {
 	workingDir, err := os.Getwd()
 	if err != nil {
 		log.Fatal(fmt.Errorf("error getting working directory: %w", err))
@@ -646,10 +591,11 @@ func startDebugPy(stopCh <-chan struct{}) {
 			log.Printf("Error killing Python debugpy: %v", err)
 		}
 		log.Println("Python debugger stopped")
+		stopCh <- struct{}{}
 	}()
 }
 
-func startJsDebug(stopCh <-chan struct{}) {
+func startJsDebug(stopCh chan struct{}) {
 	jsDebugPath := getJsDebugPath()
 	dapServerPath := filepath.Join(jsDebugPath, "js-debug", "src", "dapDebugServer.js")
 
@@ -676,7 +622,25 @@ func startJsDebug(stopCh <-chan struct{}) {
 			log.Printf("Error killing JS debug: %v", err)
 		}
 		log.Println("JS debug stopped")
+		stopCh <- struct{}{}
 	}()
+}
+
+func requireFlags(names ...string) {
+	provided := map[string]bool{}
+	flag.CommandLine.Visit(func(f *flag.Flag) { provided[f.Name] = true })
+
+	var missing []string
+	for _, n := range names {
+		if !provided[n] {
+			missing = append(missing, "-"+n)
+		}
+	}
+	if len(missing) > 0 {
+		fmt.Fprintf(os.Stderr, "Missing required flags: %s\n\n", strings.Join(missing, ", "))
+		flag.Usage()
+		os.Exit(2)
+	}
 }
 
 func init() {

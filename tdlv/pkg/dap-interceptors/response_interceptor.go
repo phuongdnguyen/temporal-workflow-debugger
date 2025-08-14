@@ -90,6 +90,11 @@ func (rir *ResponseInterceptingReader) Read(p []byte) (n int, err error) {
 
 		// Send the first part of modified data
 		bytesToCopy := len(p)
+
+		if len(modifiedData) > bytesToCopy {
+			rir.log.Fatalf("Length of modified data is larger than bytes to copy")
+		}
+
 		if len(modifiedData) < bytesToCopy {
 			bytesToCopy = len(modifiedData)
 		}
@@ -173,7 +178,7 @@ func (rir *ResponseInterceptingReader) transformResponse() []byte {
 func (rir *ResponseInterceptingReader) handleStoppedEvent(event *dap.StoppedEvent,
 	jsonObj []byte, remaining []byte) []byte {
 	rir.log.Println("handleStoppedEvent start")
-	if event.Body.Reason == "exception" || event.Body.Reason == "unknown" || event.Body.Reason == "step" {
+	if event.Body.Reason == "exception" || event.Body.Reason == "unknown" || event.Body.Reason == "step" || event.Body.Reason == "entry" {
 		// don't do anything
 		rir.log.Printf("Ignoring stopped event with reason %s", event.Body.Reason)
 		return extractors.BuildDAPMessages(jsonObj, remaining)
@@ -182,13 +187,12 @@ func (rir *ResponseInterceptingReader) handleStoppedEvent(event *dap.StoppedEven
 	rir.log.Println("Create client from existing connection")
 	client := dap_client.NewClientFromConn(rir.reader)
 	rir.log.Printf("Getting stack trace for thread %d", event.Body.ThreadId)
-	client.StackTraceRequest(event.Body.ThreadId, 0, 20)
+	client.StackTraceRequest(event.Body.ThreadId, 0, 1996)
 	resp, err := client.GetStacktraceResponse()
 	if err != nil {
 		rir.log.Printf("Can not get stack response: %v", err)
 		return extractors.BuildDAPMessages(jsonObj, remaining)
 	}
-	// var totalBuf []byte
 	for _, frame := range resp.Body.StackFrames {
 		if frame.Source == nil {
 			rir.log.Printf("frame %+v has no source info \n", frame)
@@ -217,8 +221,6 @@ func (rir *ResponseInterceptingReader) handleStoppedEvent(event *dap.StoppedEven
 					rir.log.Printf("Can not step over, step %d, success: %v", step, nextResponse.Success)
 					break
 				}
-				rir.log.Println("Appending messages batch to buffer")
-				// totalBuf = append(totalBuf, buf...)
 				rir.log.Printf("Getting stacktrace for thread id: %d", event.Body.ThreadId)
 				client.StackTraceRequest(event.Body.ThreadId, 0, 20)
 				getStacktraceResp, _, err := client.GetStacktraceResponseWithFiltering()
@@ -230,13 +232,11 @@ func (rir *ResponseInterceptingReader) handleStoppedEvent(event *dap.StoppedEven
 					rir.log.Printf("Can not get stack trace, step %d, success: %v", step, nextResponse.Success)
 					break
 				}
-				rir.log.Println("Appending messages batch to buffer")
-				// totalBuf = append(totalBuf, buf...)
-				frame := getStacktraceResp.Body.StackFrames[0]
-				rir.log.Printf("Checking frame file: %s, line: %d", frame.Source.Path, frame.Line)
-				if !locators.IsInAdapterCodeByPath(frame.Source.Path) {
-					rir.log.Println("Found workflow frame")
-					rir.log.Printf("Found user code frame file: %s, line: %d", frame.Source.Path, frame.Line)
+				steppedIntoFrame := getStacktraceResp.Body.StackFrames[0]
+				rir.log.Printf("Checking frame file: %s, line: %d", steppedIntoFrame.Source.Path, steppedIntoFrame.Line)
+				if !locators.IsInAdapterCodeByPath(steppedIntoFrame.Source.Path) {
+					rir.log.Printf("Found workflow frame threadID: %d file: %s, line: %d", event.Body.ThreadId, steppedIntoFrame.Source.Path, steppedIntoFrame.Line)
+					(*event).Body.Description = "Paused on workflow"
 					b, err := json.Marshal(event)
 					if err != nil {
 						rir.log.Printf("Can not marshal event: %v", err)

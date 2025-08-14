@@ -41,24 +41,26 @@ func Pwd() string {
 // and not part of framework/adapter code
 func IsUserCodeFile(filePath, workingDir string) bool {
 	if filePath == "" || workingDir == "" {
+		log.Println("IsUserCodeFile, empty working dir or file path -> not user code")
 		return false
 	}
 
 	// Convert file path to absolute path for consistent comparison
-	absFilePath, err := filepath.Abs(filePath)
-	if err != nil {
-		log.Printf("Failed to get absolute path for %s: %v", filePath, err)
-		// Fallback to string comparison
-		absFilePath = filePath
-	}
+	// absFilePath, err := filepath.Abs(filePath)
+	// if err != nil {
+	// 	log.Printf("Failed to get absolute path for %s: %v", filePath, err)
+	// 	// Fallback to string comparison
+	// 	absFilePath = filePath
+	// }
 
 	// Check if file is within working directory
-	isInWorkingDir := strings.HasPrefix(absFilePath, workingDir)
+	// isInWorkingDir := strings.HasPrefix(absFilePath, workingDir)
 
-	if !isInWorkingDir {
-		// File is outside working directory - definitely not user code
-		return false
-	}
+	// if !isInWorkingDir {
+	// 	// File is outside working directory - definitely not user code
+	// 	log.Println("IsUserCodeFile, outside working dir -> not user code")
+	// 	return false
+	// }
 
 	// File is in working directory, but check if it's adapter/framework code
 	// Exclude known adapter/framework paths even if they're in working directory
@@ -68,6 +70,7 @@ func IsUserCodeFile(filePath, workingDir string) bool {
 		strings.Contains(filePath, "replayer-adapter-nodejs/") ||
 		strings.Contains(filePath, "vendor/") ||
 		strings.Contains(filePath, ".git/") {
+		log.Println("IsUserCodeFile, contains adapter in file path/git/vendor 1 -> not user code")
 		return false
 	}
 
@@ -80,6 +83,7 @@ func IsUserCodeFile(filePath, workingDir string) bool {
 		strings.Contains(filePath, "<node_internals>") ||
 		strings.Contains(filePath, "workflow-interceptors.ts") ||
 		strings.Contains(filePath, "/reflect/") {
+		log.Println("IsUserCodeFile, contains adapter in file path/git/vendor 2 -> not user code")
 		return false
 	}
 
@@ -101,6 +105,7 @@ func IsUserCodeFile(filePath, workingDir string) bool {
 		strings.Contains(filePath, "<node_internals>") ||
 		strings.Contains(filePath, "workflow-interceptors.ts") ||
 		strings.Contains(filePath, "replayer.ts") {
+		log.Println("IsUserCodeFile, contains adapter in file path/git/vendor 3 -> not user code")
 		return false
 	}
 
