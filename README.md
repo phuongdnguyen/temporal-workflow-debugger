@@ -1,4 +1,4 @@
-<img src="docs/images/logo.svg" alt="Temporal Debugger Logo" width="700">
+<img src="docs/images/logo.svg" alt="Temporal Debugger Logo" width="200">
 
 ## Introduction
 
@@ -12,9 +12,8 @@ This debugger solves these challenges by leveraging the **workflow replayer** - 
 
 ## Key Features
 
-### **Seamless IDE Integration**
+###
 - **Multi-language Support**: Works with Go, TypeScript/Node.js, and Python via adapters
-- **JetBrains Plugin (Go)**: Native integration with GoLand using standard debugging controls and a history view
 - **VS Code Extension**: Open a panel, load history, set event breakpoints, and replay with your adapter
 - **Event-based Breakpoints**: Set breakpoints on specific workflow history events
 
@@ -183,7 +182,7 @@ Set your debugging language in workspace settings:
 ```json
 {
   "temporal.debugLanguage": "python",
-  "temporal.replayerEntrypoint": "replayer.pt"
+  "temporal.replayerEntrypoint": "replayer.py"
 }
 ```
 
@@ -270,9 +269,8 @@ The debugger leverages Temporal's workflow replayer functionality to reconstruct
 
 This approach provides accurate debugging of the exact execution that occurred, rather than a new execution that might behave differently.
 
-[1](./docs/images/1.jpg)
-
-[2](./docs/images/2.jpg)
+![1](./docs/images/1.jpg)
+![2](./docs/images/2.jpg)
 
 ## Development Setup
 
