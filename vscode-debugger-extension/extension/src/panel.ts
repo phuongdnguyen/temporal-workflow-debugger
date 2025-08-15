@@ -246,7 +246,7 @@ export class HistoryDebuggerPanel {
         console.log(`debuggerDepCheck timed out after ${timeoutMs}ms; killing process`)
         try {
           childProcess.kill("SIGKILL")
-        } catch {}
+        } catch { }
         return false
       }
 
@@ -363,6 +363,9 @@ export class HistoryDebuggerPanel {
   private async getTdlvConfigs(): Promise<{ command?: string; args?: string[]; options?: any }[]> {
     const language = getCurrentLanguage()
     const tdlv = this.resolveOnPath("tdlv")
+    if (tdlv === "") {
+      throw new Error("Please install tdlv first")
+    }
     const baseArgs = ["--install"]
     switch (language) {
       case "python":
@@ -890,7 +893,7 @@ export class HistoryDebuggerPanel {
   private resolveOnPath(command: string, env?: NodeJS.ProcessEnv): string {
     const resolved = which.sync(command, { nothrow: true, path: env?.PATH ?? process.env.PATH })
     if (!resolved) {
-      throw new Error(`Command "${command}" not found on PATH`)
+      return ""
     }
     return resolved
   }
