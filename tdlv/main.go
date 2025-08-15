@@ -45,13 +45,10 @@ func main() {
 	flag.IntVar(&proxyPort, "p", 60000, "port for remote debugging")
 
 	var lang string
-	flag.StringVar(&lang, "lang", "", "language to use for the workflow, available options: [go, python, js]")
+	flag.StringVar(&lang, "lang", "", "[required] language to use for the workflow, available options: [go, python, js]")
 
 	var install bool
-	flag.BoolVar(&install, "install", false, "auto-install missing language debuggers (requires user confirmation)")
-
-	var entryPoint string
-	flag.StringVar(&entryPoint, "entrypoint", "", "launch entry point for the debugger")
+	flag.BoolVar(&install, "install", false, "auto-install missing language debuggers")
 
 	var start bool
 	flag.BoolVar(&start, "start", false, "start debugger")

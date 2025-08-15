@@ -1,4 +1,4 @@
-# Tdlv
+# Temporal-delve
 
 A multi-language debugger for Temporal workflows that supports Go, Python, and JavaScript.
 
@@ -13,17 +13,15 @@ The custom debugger provides debugging capabilities for Temporal workflows by:
 ## Usage
 
 ```bash
-# Start with default settings (Go language, port 60000)
-./tdlv
+# Install dependencies
+./tdlv --lang=python --install
+./tdlv --lang=go --install
+./tdlv --lang=js --install
 
-# Specify language and port
-./tdlv -lang python -p 60001
-
-# Auto-install missing debuggers
-./tdlv -lang js -install
-
-# Suppress dependency check messages
-./tdlv -quiet
+# Start debugger on default port 60000
+./tdlv -lang=python --start
+./tdlv -lang=go --start
+./tdlv -lang=js --start
 ```
 
 ## Supported Languages
@@ -42,4 +40,4 @@ The custom debugger provides debugging capabilities for Temporal workflows by:
 The debugger automatically checks for and can install required language-specific debuggers:
 - Delve for Go workflows
 - DebugPy for Python workflows  
-- JS Debug for JavaScript workflows 
+- JS Debug for Typescript workflows 
