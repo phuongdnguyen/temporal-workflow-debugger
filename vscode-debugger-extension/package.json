@@ -1,8 +1,8 @@
 {
   "name": "temporal-workflow-debugger",
   "displayName": "Temporal workflow debugger",
-  "version": "0.1.6",
-  "description": "Debug workflows by their ID or history file. Set breakpoints in code or on history events.",
+  "version": "0.1.7",
+  "description": "Debug workflows by setting breakpoints in workflow history and workflow code.",
   "categories": [
     "Debuggers",
     "Visualization"
@@ -15,7 +15,8 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/phuongdnguyen/temporal-workflow-debugger/vscode-debugger-extension"
+    "url": "https://github.com/phuongdnguyen/temporal-workflow-debugger",
+    "directory": "vscode-debugger-extension"
   },
   "license": "MIT",
   "publisher": "phuongdnguyen",
