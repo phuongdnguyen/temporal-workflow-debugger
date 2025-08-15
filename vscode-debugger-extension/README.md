@@ -1,7 +1,13 @@
-# Temporal workflow debugger
+<h1 align="center">
+  <br>
+  <br>
+    <img src="./banner.png" alt="Temporal workflow debugger">
+  <br>
+</h1>
 
 <h4 align="center">Debug Temporal workflows by their ID or history file.</h4>
 <h4 align="center">Set breakpoints in code or on history events.</h4>
+<h4 align="center">Support multiple workflow languages.</h4>
 
 ## Usage
 
