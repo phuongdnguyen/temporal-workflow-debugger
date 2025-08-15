@@ -53,35 +53,30 @@ By default, the extension will look for the file that calls the TypeScript repla
 Your entrypoint file should import the replayer adapter and your workflow:
 
 ```typescript
-import { exampleWorkflow } from './workflow';
-import { ReplayMode, replay } from '@phuongdnguyen/replayer-adapter-nodejs';
+import { exampleWorkflow } from "./workflow"
+import { ReplayMode, replay } from "@phuongdnguyen/replayer-adapter-nodejs"
 
 async function main() {
-    const opts = {
-        mode: ReplayMode.IDE,
-        workerReplayOptions: {
-            workflowsPath: require.resolve('./workflow.ts'),
-            bundlerOptions: {
-                ignoreModules: [
-                    'fs/promises',
-                    '@temporalio/worker',
-                    'path',
-                    'child_process'
-                ]
-            },
-            debugMode: true,
-        },
-        debuggerAddr: 'http://127.0.0.1:54578'
-    };
+  const opts = {
+    mode: ReplayMode.IDE,
+    workerReplayOptions: {
+      workflowsPath: require.resolve("./workflow.ts"),
+      bundlerOptions: {
+        ignoreModules: ["fs/promises", "@temporalio/worker", "path", "child_process"],
+      },
+      debugMode: true,
+    },
+    debuggerAddr: "http://127.0.0.1:54578",
+  }
 
-    await replay(opts, exampleWorkflow);
+  await replay(opts, exampleWorkflow)
 }
 
 if (require.main === module) {
-    main().catch((error) => {
-        console.error('Error:', error);
-        process.exit(1);
-    });
+  main().catch((error) => {
+    console.error("Error:", error)
+    process.exit(1)
+  })
 }
 ```
 
@@ -140,7 +135,7 @@ async def main():
     try:
         # Set up ide mode
         set_replay_mode(ReplayMode.IDE)
-        
+
         # Create replay options
         opts = ReplayOptions(
             worker_replay_options={},

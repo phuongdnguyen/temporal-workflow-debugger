@@ -246,7 +246,7 @@ export class HistoryDebuggerPanel {
         console.log(`debuggerDepCheck timed out after ${timeoutMs}ms; killing process`)
         try {
           childProcess.kill("SIGKILL")
-        } catch { }
+        } catch {}
         return false
       }
 
