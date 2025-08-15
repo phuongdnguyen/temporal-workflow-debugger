@@ -1,6 +1,6 @@
 {
   "name": "@phuongdnguyen/replayer-adapter-nodejs",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Replayer adapter and interceptors for Temporal Node.js workflows",
   "repository": {
     "type": "git",
