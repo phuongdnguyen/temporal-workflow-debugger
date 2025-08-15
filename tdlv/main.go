@@ -97,9 +97,9 @@ func main() {
 			printJsDebugInstallationGuidance()
 			os.Exit(1)
 		}
-		// if start {
-		// 	startJsDebug(debuggerStopCh)
-		// }
+		if start {
+			startJsDebug(debuggerStopCh)
+		}
 	default:
 		log.Fatalf("Unknown lang: %s", lang)
 	}

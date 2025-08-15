@@ -1,5 +1,4 @@
 {
     "temporal.debugLanguage": "go",
-    "temporal.debugger.backgroundProcess.command": "tdlv",
-    "temporal.debugger.backgroundProcess.args": ["--lang=go", "--install", "--quiet"]
+    "temporal.replayerEntrypoint": "main.go"
 }

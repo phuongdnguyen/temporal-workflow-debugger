@@ -11,21 +11,21 @@
 
 ## Usage
 
-Watch [the demo](https://www.youtube.com/watch?v=3IjQde9HMNY) or follow these instructions:
+Follow these instructions:
 
 - Install [the extension](https://marketplace.visualstudio.com/items?itemName=phuongdnguyen.temporal-workflow-debugger)
 
 - Follow the examples for:
-- [Typescript](../example/js/vscode-replayer.ts)
+- [TypeScript](../example/js/vscode-replayer.ts)
 - [Go](../example/go/structured-workflow/replay-debug-ide-integrated/)
 - [Python](../example/python/vscode-replay.py)
 
-- Edit the `'./workflows'` path to match the location of your workflows file
 - Run `Temporal: Open Panel` (use `Cmd/Ctrl-Shift-P` to open Command Palette)
 - Enter a Workflow Id or choose a history JSON file
-- Click `Start`
-- The Workflow Execution will start replaying and hit a breakpoint set on the first event
-- Set breakpoints in Workflow code (the extension uses a [replay Worker](https://typescript.temporal.io/api/classes/worker.Worker#runreplayhistory), so Activity code is not run) or on history events
+- Click `Load History`
+- Select history events that you want the workflow to be stopped on
+- The Workflow Execution will start replaying until it hit a breakpoint
+- Set breakpoints in Workflow code (the extension uses a Workflow Replayer, so Activity code is not run) or on history events
 - Hit play or step forward
 - To restart from the beginning, click the green restart icon at the top of the screen, or if the debug session has ended, go back to the `MAIN` tab and `Start` again
 
@@ -43,9 +43,9 @@ To connect to a different Server:
 
 ### Entrypoint
 
-#### Typescript
+#### TypeScript
 
-By default, the extension will look for the file that calls [`startDebugReplayer`](https://typescript.temporal.io/api/namespaces/worker#startdebugreplayer) at `src/debug-replayer.ts`. To use a different TypeScript or JavaScript file, set the `temporal.replayerEntryPoint` config:
+By default, the extension will look for the file that calls the TypeScript replayer adapter at `src/debug-replayer.ts`. To use a different TypeScript or JavaScript file, set the `temporal.replayerEntryPoint` config:
 
 - Open or create `.vscode/settings.json`
 - Add the config field:
@@ -55,6 +55,41 @@ By default, the extension will look for the file that calls [`startDebugReplayer
     "temporal.replayerEntryPoint": "test/different-file.ts"
   }
   ```
+
+Your entrypoint file should import the replayer adapter and your workflow:
+
+```typescript
+import { exampleWorkflow } from './workflow';
+import { ReplayMode, replay } from '@phuongdnguyen/replayer-adapter-nodejs';
+
+async function main() {
+    const opts = {
+        mode: ReplayMode.IDE,
+        workerReplayOptions: {
+            workflowsPath: require.resolve('./workflow.ts'),
+            bundlerOptions: {
+                ignoreModules: [
+                    'fs/promises',
+                    '@temporalio/worker',
+                    'path',
+                    'child_process'
+                ]
+            },
+            debugMode: true,
+        },
+        debuggerAddr: 'http://127.0.0.1:54578'
+    };
+
+    await replay(opts, exampleWorkflow);
+}
+
+if (require.main === module) {
+    main().catch((error) => {
+        console.error('Error:', error);
+        process.exit(1);
+    });
+}
+```
 
 _Note that the file must be within your project directory so it can find `node_modules/`._
 
@@ -67,15 +102,18 @@ package main
 
 import (
     "go.temporal.io/sdk/worker"
-    replayer "github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go"
-    "your/module/workflows"
+    replayer_adapter_go "github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go"
+    "example/pkg/workflows"
 )
 
 func main() {
-    replayer.SetReplayMode(replayer.ReplayModeIde)
-    _ = replayer.Replay(replayer.ReplayOptions{
+    replayer_adapter_go.SetReplayMode(replayer_adapter_go.ReplayModeIde)
+    err := replayer_adapter_go.Replay(replayer_adapter_go.ReplayOptions{
         WorkerReplayOptions: worker.WorkflowReplayerOptions{DisableDeadlockDetection: true},
-    }, workflows.YourWorkflow)
+    }, workflows.ExampleWorkflow)
+    if err != nil {
+        panic(err)
+    }
 }
 ```
 
@@ -98,12 +136,25 @@ Python entrypoints are also started via the background process. Create a small s
 
 ```python
 import asyncio
-from replayer_adapter_python.replayer import ReplayMode, ReplayOptions, set_replay_mode, replay
-from workflow import YourWorkflow
+from replayer_adapter_python.replayer import (
+    ReplayMode, ReplayOptions, set_replay_mode, replay
+)
+from workflow import UserOnboardingWorkflow
 
 async def main():
-    set_replay_mode(ReplayMode.IDE)
-    await replay(ReplayOptions(worker_replay_options={}), YourWorkflow)
+    """Run ide examples"""
+    try:
+        # Set up ide mode
+        set_replay_mode(ReplayMode.IDE)
+        
+        # Create replay options
+        opts = ReplayOptions(
+            worker_replay_options={},
+        )
+        result = await replay(opts, UserOnboardingWorkflow)
+        print(f"Result: {result}")
+    except Exception as e:
+        print(f"Replay failed: {e}")
 
 if __name__ == "__main__":
     asyncio.run(main())
@@ -123,6 +174,12 @@ Configure the background process to start `tdlv` for Python and point it at your
     "${workspaceFolder}/vscode-replay.py"
   ]
 }
+```
+
+Make sure your Python environment has the required dependencies installed:
+
+```bash
+pip install temporalio replayer-adapter-python
 ```
 
 ### Languages
