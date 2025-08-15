@@ -1,5 +1,10 @@
 <img src="docs/images/logo.svg" alt="Temporal Debugger Logo" width="200">
 
+<a href="https://marketplace.visualstudio.com/items?itemName=phuongdnguyen.temporal-workflow-debugger"><img src="https://img.shields.io/badge/Install%20from%20VS%20Code%20Marketplace-007ACC?logo=visual-studio-code&logoColor=white" alt="Install from VS Code Marketplace"></a>
+[![Go Replayer](https://pkg.go.dev/badge/github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go.svg)](https://pkg.go.dev/github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go)
+[![Python Replayer](https://badge.fury.io/py/temporal-replayer-adapter-python.svg)](https://badge.fury.io/py/temporal-replayer-adapter-python)
+[![Typescript Replayer](https://badge.fury.io/js/@phuongdnguyen%2Freplayer-adapter-nodejs.svg)](https://badge.fury.io/js/@phuongdnguyen%2Freplayer-adapter-nodejs)
+
 ## Introduction
 
 A comprehensive debugging solution that enables step-through debugging of [Temporal](https://github.com/temporalio/temporal) workflows. Unlike traditional debuggers that aren't aware of Temporal's execution model, this debugger provides a seamless development experience by allowing you to set breakpoints, inspect variables, and trace execution flow within your workflow code.
@@ -60,9 +65,9 @@ Whether you're debugging a complex workflow that's failing in production or just
 ### Replayers
 
 **Use language-specific replayers to debug your workflows:**
-- **Go**: [github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go](https://pkg.go.dev/github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go)
-- **Python**: [temporal-replayer-adapter-python](https://pypi.org/project/temporal-replayer-adapter-python/)
-- **TypeScript**: [@phuongdnguyen/replayer-adapter-nodejs](https://www.npmjs.com/package/@phuongdnguyen/replayer-adapter-nodejs)
+- **Go**: [github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go](https://pkg.go.dev/github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go) [![Go Reference](https://pkg.go.dev/badge/github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go.svg)](https://pkg.go.dev/github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go)
+- **Python**: [temporal-replayer-adapter-python](https://pypi.org/project/temporal-replayer-adapter-python/) [![PyPI version](https://badge.fury.io/py/temporal-replayer-adapter-python.svg)](https://badge.fury.io/py/temporal-replayer-adapter-python)
+- **TypeScript**: [@phuongdnguyen/replayer-adapter-nodejs](https://www.npmjs.com/package/@phuongdnguyen/replayer-adapter-nodejs) [![npm version](https://badge.fury.io/js/@phuongdnguyen%2Freplayer-adapter-nodejs.svg)](https://badge.fury.io/js/@phuongdnguyen%2Freplayer-adapter-nodejs)
 
 ## Usage
 
