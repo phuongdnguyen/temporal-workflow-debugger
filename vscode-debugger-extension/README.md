@@ -1,10 +1,4 @@
-<h1 align="center">
-  Temporal for VS Code
-  <br>
-  <br>
-    <img src="https://assets.temporal.io/w/vscode.png" alt="Temporal for VS Code">
-  <br>
-</h1>
+# Temporal workflow debugger
 
 <h4 align="center">Debug Temporal workflows by their ID or history file.</h4>
 <h4 align="center">Set breakpoints in code or on history events.</h4>
