@@ -14,7 +14,6 @@ import (
 	"time"
 
 	historypb "go.temporal.io/api/history/v1"
-	"go.temporal.io/api/temporalproto"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
 )
@@ -221,7 +220,7 @@ func getHistoryFromIDE() (*historypb.History, error) {
 
 	addr := os.Getenv("TEMPORAL_DEBUGGER_PLUGIN_URL")
 	if addr == "" {
-		addr = "localhost:54578"
+		addr = "http://localhost:54578"
 	}
 	// Store runner address for breakpoint checks
 	debuggerAddr = addr
@@ -242,48 +241,11 @@ func getHistoryFromIDE() (*historypb.History, error) {
 		return nil, fmt.Errorf("could not read history response: %v", err)
 	}
 
-	// Convert JSON response to protobuf format
-	hist, err := extractHistoryFromJsonBytes(body, 0)
-	if err != nil {
-		return nil, fmt.Errorf("could not parse history: %v", err)
+	// Decode binary protobuf directly
+	hist := &historypb.History{}
+	if err := hist.Unmarshal(body); err != nil {
+		return nil, fmt.Errorf("could not unmarshal protobuf history: %v", err)
 	}
 
-	return hist, nil
-}
-
-func extractHistoryFromJsonBytes(body []byte, lastEventID int64) (hist *historypb.History, err error) {
-	fmt.Printf("extractHistoryFromJsonBytes, body length: %d bytes\n", len(body))
-
-	// Validate that we have JSON data
-	if len(body) == 0 {
-		return nil, fmt.Errorf("empty history data received")
-	}
-
-	opts := temporalproto.CustomJSONUnmarshalOptions{
-		DiscardUnknown: true,
-	}
-
-	hist = &historypb.History{}
-	if err := opts.Unmarshal(body, hist); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal history JSON to protobuf: %w", err)
-	}
-
-	// Validate that we have events
-	if len(hist.Events) == 0 {
-		return nil, fmt.Errorf("history contains no events")
-	}
-
-	// If there is a last event ID, slice the rest off
-	if lastEventID > 0 {
-		for i, event := range hist.Events {
-			if event.EventId == lastEventID {
-				// Inclusive
-				hist.Events = hist.Events[:i+1]
-				break
-			}
-		}
-	}
-
-	fmt.Printf("Successfully parsed history with %d events\n", len(hist.Events))
 	return hist, nil
 }

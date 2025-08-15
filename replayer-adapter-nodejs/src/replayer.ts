@@ -5,6 +5,7 @@ import { temporal } from '@temporalio/proto';
 import { getLNSE, ReplayMode, ReplayOptions, setDebuggerAddr, setLNSE, getBreakpoints, getReplayMode, getDebuggerAddr, setReplayMode, setBreakpoints } from './types';
 import { httpGet } from './http-client';
 import { BreakpointManager, fetchBreakpointsFromWorkflow, sendHighlightFromWorkflow, destroyWorkerThread } from './breakpoint-manager.js';
+import { Client } from './client';
 
 
 /**
@@ -15,12 +16,12 @@ export async function getHistoryFromIDE(): Promise<temporal.api.history.v1.IHist
 
   try {
     setDebuggerAddr(addr);
-    const response = await httpGet(`${getDebuggerAddr()}/history`);
-    if (response.statusCode !== 200) {
-      throw new Error(`HTTP error! status: ${response.statusCode}`);
-    }
-
-    return JSON.parse(response.body);
+    const client = new Client({ baseUrl: addr });
+    const response = await client.get('history');
+    return temporal.api.history.v1.History.decode(
+      await Client.readAll(response),
+      Client.contentLength(response)
+    );
   } catch (error) {
     console.error(`Could not get history from IDE: ${error}`);
     throw error;

@@ -310,8 +310,23 @@ def get_history_from_ide() -> WorkflowHistory:
         resp = requests.get(f"{addr}/history", timeout=5)
         resp.raise_for_status()
         debugger_addr = addr
-        hist_json = resp.json()
-        return WorkflowHistory.from_json("replayed-worker", hist_json)
+        
+        # Get the binary content
+        binary_data = resp.content
+        
+        # Import the protobuf classes from temporalio
+        from temporalio.api.history.v1 import History
+        from google.protobuf.json_format import MessageToDict
+        
+        # Parse the binary protobuf data
+        history_proto = History()
+        history_proto.ParseFromString(binary_data)
+        
+        # Convert protobuf to JSON format for WorkflowHistory.from_json
+        history_dict = MessageToDict(history_proto)
+        
+        return WorkflowHistory.from_json("replayed-worker", history_dict)
+        
     except Exception as e:
         logger.error(f"Could not get history from IDE: {e}")
         raise

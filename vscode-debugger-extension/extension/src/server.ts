@@ -2,6 +2,8 @@ import http from "node:http"
 import { AddressInfo } from "node:net"
 import express from "express"
 import { HistoryDebuggerPanel } from "./panel"
+import { temporal } from "@temporalio/proto"
+// Removed historyToJSON import - using protobuf's built-in toJSON() method instead
 
 async function listen(server: http.Server, port: number, hostname?: string): Promise<http.Server> {
   await new Promise<void>((resolve, reject) => {
@@ -35,8 +37,6 @@ export class Server {
           res.status(404).json({ error: "No current history available" })
           return
         }
-        // Set Content-Type to match Java extension (application/octet-stream for raw bytes)
-        res.setHeader("Content-Type", "application/octet-stream")
         res.end(currentHistoryBuffer)
       } catch (error) {
         res.status(500).json({ error: `${error}` })
@@ -87,4 +87,41 @@ export class Server {
     console.log(`Closing server on ${this.url}`)
     this.server.close()
   }
+}
+
+function convertTimestampsToISO8601(obj: any): any {
+  if (obj === null || obj === undefined) {
+    return obj
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map((item) => convertTimestampsToISO8601(item))
+  }
+
+  if (typeof obj === "object") {
+    // Check if this looks like a protobuf Timestamp object
+    if (obj.seconds !== undefined || obj.nanos !== undefined) {
+      try {
+        // Convert seconds and nanos to milliseconds
+        const seconds = parseInt(obj.seconds || "0")
+        const nanos = parseInt(obj.nanos || "0")
+        const milliseconds = seconds * 1000 + Math.floor(nanos / 1000000)
+
+        // Create ISO 8601 string
+        return new Date(milliseconds).toISOString()
+      } catch (error) {
+        console.warn("Failed to convert timestamp:", obj, error)
+        return obj
+      }
+    }
+
+    // Recursively process all object properties
+    const result: any = {}
+    for (const [key, value] of Object.entries(obj)) {
+      result[key] = convertTimestampsToISO8601(value)
+    }
+    return result
+  }
+
+  return obj
 }

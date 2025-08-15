@@ -53,9 +53,9 @@ export class HistoryDebuggerPanel {
     return this._instance
   }
 
+  // stores the binary-encoded representation of a temporal.api.history.v1.History protobuf message
   public currentHistoryBuffer?: Buffer
-  private originalHistoryJSON?: any // Store the original JSON for the /history endpoint
-  private enabledBreakpoints: Set<number> = new Set() // Store breakpoints like Java extension
+  private enabledBreakpoints: Set<number> = new Set()
   private debuggerProcess?: ChildProcess // Background process to run alongside debugging
   private debugSessionDisposables: vscode.Disposable[] = [] // Debug session event listeners
 
@@ -559,6 +559,7 @@ export class HistoryDebuggerPanel {
 
     webview.onDidReceiveMessage(async (e): Promise<void> => {
       try {
+        console.log(`webview receive a message of type: ${e.type}`)
         switch (e.type) {
           case "updateWorkflowTaskHasBreakpoint": {
             this.updateWorkflowTaskHasBreakpoint(e.hasBreakpoint)
@@ -602,16 +603,6 @@ export class HistoryDebuggerPanel {
             await vscode.window.showInformationMessage("Settings updated")
             break
           }
-          case "startFromId": {
-            const history = await this.downloadHistory(e)
-            await this.handleStartProject(history)
-            break
-          }
-          case "startFromHistory": {
-            const history = historyFromJSON(e.history)
-            await this.handleStartProject(history, e.history) // Pass originalJSON
-            break
-          }
           case "loadHistoryFromId": {
             const history = await this.downloadHistory(e)
             await this.handleLoadHistoryOnly(history)
@@ -619,16 +610,17 @@ export class HistoryDebuggerPanel {
           }
           case "loadHistoryFromFile": {
             const history = historyFromJSON(e.history)
-            await this.handleLoadHistoryOnly(history, e.history) // Pass originalJSON
+            await this.handleLoadHistoryOnly(history)
             break
           }
           case "startDebugSession": {
-            if (!this.currentHistoryBuffer || !this.originalHistoryJSON) {
+            if (!this.currentHistoryBuffer) {
               throw new Error("No history loaded. Please load history first.")
             }
+            const history = temporal.api.history.v1.History.decode(this.currentHistoryBuffer)
+            console.log(`temporal.api.history.v1.History.decode(this.currentHistoryBuffer): ${history}`)
             // Convert the stored JSON back to protobuf format for handleStartProject
-            const history = historyFromJSON(this.originalHistoryJSON)
-            await this.handleStartProject(history, this.originalHistoryJSON)
+            await this.handleStartProject(history)
             break
           }
         }
@@ -716,31 +708,15 @@ export class HistoryDebuggerPanel {
   }
 
   /* eslint-disable @typescript-eslint/naming-convention */
-  private async handleStartProject(history: temporal.api.history.v1.IHistory, originalJSON?: any): Promise<void> {
-    // Store history in JSON format for the /history endpoint (compatible with Go replayer)
-    let historyJSON: any
-    if (originalJSON) {
-      // Use the original JSON if provided (from startFromHistory case)
-      historyJSON = originalJSON
-    } else {
-      // Convert protobuf history to JSON format (from startFromId case)
-      const historyInstance = temporal.api.history.v1.History.create(history)
-      historyJSON = historyInstance.toJSON()
-    }
-
-    // Store as JSON bytes for the /history endpoint
-    const jsonString = JSON.stringify(historyJSON)
-    this.currentHistoryBuffer = Buffer.from(jsonString, "utf8")
-    this.originalHistoryJSON = historyJSON
-
-    // Still send protobuf bytes to webview for UI processing
-    const bytes = new Uint8Array(temporal.api.history.v1.History.encode(history).finish())
+  private async handleStartProject(history: temporal.api.history.v1.IHistory): Promise<void> {
+    // // Still send protobuf bytes to webview for UI processing
+    // const bytes = new Uint8Array(temporal.api.history.v1.History.encode(history).finish())
     const workspace = vscode.workspace.workspaceFolders?.[0]
     const language = getCurrentLanguage()
 
-    await this.panel.webview.postMessage({ type: "historyProcessed", history: bytes })
-    // Sync current breakpoints to webview
-    await this.syncBreakpointsToWebview()
+    // await this.panel.webview.postMessage({ type: "historyProcessed", history: bytes })
+    // // Sync current breakpoints to webview
+    // await this.syncBreakpointsToWebview()
     // Make sure the panel is out of focus before starting a debug session, otherwise it will be replaced with an
     // editor
     if (vscode.window.tabGroups.all.length > 1) {
@@ -873,25 +849,12 @@ export class HistoryDebuggerPanel {
     return picked == yes
   }
 
-  private async handleLoadHistoryOnly(history: temporal.api.history.v1.IHistory, originalJSON?: any): Promise<void> {
-    // Store history in JSON format for the /history endpoint (compatible with Go replayer)
-    let historyJSON: any
-    if (originalJSON) {
-      // Use the original JSON if provided (from loadHistoryFromFile case)
-      historyJSON = originalJSON
-    } else {
-      // Convert protobuf history to JSON format (from loadHistoryFromId case)
-      const historyInstance = temporal.api.history.v1.History.create(history)
-      historyJSON = historyInstance.toJSON()
-    }
-
-    // Store as JSON bytes for the /history endpoint
-    const jsonString = JSON.stringify(historyJSON)
-    this.currentHistoryBuffer = Buffer.from(jsonString, "utf8")
-    this.originalHistoryJSON = historyJSON
+  private async handleLoadHistoryOnly(history: temporal.api.history.v1.IHistory): Promise<void> {
+    const bytes = new Uint8Array(temporal.api.history.v1.History.encode(history).finish())
+    const buffer = Buffer.from(bytes)
+    this.currentHistoryBuffer = buffer
 
     // Send protobuf bytes to webview for UI processing
-    const bytes = new Uint8Array(temporal.api.history.v1.History.encode(history).finish())
     await this.panel.webview.postMessage({ type: "historyProcessed", history: bytes })
     // Sync current breakpoints to webview
     await this.syncBreakpointsToWebview()
