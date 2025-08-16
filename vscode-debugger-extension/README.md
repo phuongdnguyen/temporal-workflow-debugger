@@ -41,22 +41,42 @@ To connect to a different Server:
 - Edit the `Address` field
 - If you're using TLS (e.g. to connect to Temporal Cloud), check the box and select your client cert and key
 
-### Entrypoint
+### Examples
 
 #### TypeScript
 
-By default, the extension will look for the file that calls the TypeScript replayer adapter at `src/debug-replayer.ts`. To use a different TypeScript or JavaScript file, set the `temporal.replayerEntryPoint` config:
+Create a small `replayer.ts` in your project that runs the Tyepscript replayer adapter in IDE mode and registers your workflow function, for example:
 
-- Open or create `.vscode/settings.json`
-- Add the config field:
+1. Install the replayer first:
 
-  ```json
-  {
-    "temporal.replayerEntryPoint": "test/different-file.ts"
-  }
-  ```
+```
+npm i @phuongdnguyen/replayer-adapter-nodejs --save
+```
 
-Your entrypoint file should import the replayer adapter and your workflow:
+2. Install the debugger [tdlv](https://github.com/phuongdnguyen/temporal-workflow-debugger/releases/tag/tdlv-v0.0.2) and add it to PATH
+3. Verify tldv is installed in PATH
+
+```
+tdlv --help
+Missing required flags: -lang
+
+Tdlv (Temporal delve) is a temporal workflow debugger
+
+Usage: tdlv [options]
+
+  -help
+        Tdlv (Temporal delve) is a temporal workflow debugger, provide ability to focus on user workflow code in debug sessions (alias: -h)
+  -install
+        auto-install missing language debuggers
+  -lang string
+        [required] language to use for the workflow, available options: [go, python, js]
+  -p int
+        port for remote debugging (default 60000)
+  -start
+        start debugger
+```
+
+4. Your entrypoint file should import the replayer adapter and your workflow:
 
 ```typescript
 import { exampleWorkflow } from "./workflow"
@@ -67,12 +87,7 @@ async function main() {
     mode: ReplayMode.IDE,
     workerReplayOptions: {
       workflowsPath: require.resolve("./workflow.ts"),
-      bundlerOptions: {
-        ignoreModules: ["fs/promises", "@temporalio/worker", "path", "child_process"],
-      },
-      debugMode: true,
     },
-    debuggerAddr: "http://127.0.0.1:54578",
   }
 
   await replay(opts, exampleWorkflow)
@@ -86,11 +101,25 @@ if (require.main === module) {
 }
 ```
 
+5. Open or create `.vscode/settings.json` and add the config field:
+
+```json
+{
+  "temporal.replayerEntryPoint": "replayer.ts"
+}
+```
+
 _Note that the file must be within your project directory so it can find `node_modules/`._
 
 #### Go
 
-Go entrypoints are started via the background process. Create a small `main.go` in your project that runs the Go replayer adapter in IDE mode and registers your workflow function, for example:
+1. Get the replayer code
+
+```
+go get -u github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go@latest
+```
+
+2. Create a small `main.go` in your project that runs the Go replayer adapter in IDE mode and registers your workflow function, for example:
 
 ```go
 package main
@@ -112,22 +141,30 @@ func main() {
 }
 ```
 
-Configure the background process to run `tdlv` which builds and runs your entrypoint under Delve and exposes a DAP proxy on port 60000. Set `cwd` to the folder that contains your `package main` (the entrypoint):
+3. Configure the extension:
 
 ```json
 {
   "temporal.debugLanguage": "go",
-  "temporal.debugger.backgroundProcess.command": "tdlv",
-  "temporal.debugger.backgroundProcess.args": ["--lang=go", "--install", "--quiet"],
-  "temporal.debugger.backgroundProcess.options": { "cwd": "./path-to-your-entrypoint-folder" }
+  "temporal.replayerEntrypoint": "main.go"
 }
 ```
 
-The extension automatically attaches to the proxy. If your workspace root is the Go module, you may omit `options.cwd`.
+4. Run "Temporal: Open Panel"
+5. Enter a Workflow Id or choose a history JSON file
+6. Click `Load History`
+7. Select history events that you want the workflow to be stopped on
+8. Hit `Start debug session`
 
 #### Python
 
-Python entrypoints are also started via the background process. Create a small script (e.g. `vscode-replay.py`) that uses the Python replayer adapter in IDE mode and references your workflow:
+1. Make sure your Python environment has the required dependencies installed:
+
+```bash
+pip install temporalio replayer-adapter-python
+```
+
+2. Create a small script (e.g. `replayer.py`) that uses the Python replayer adapter in IDE mode and references your workflow:
 
 ```python
 import asyncio
@@ -155,83 +192,19 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-Configure the background process to start `tdlv` for Python and point it at your entrypoint script (DebugPy will be launched by `tdlv` and proxied via port 60000):
+3. Configure the extension:
 
 ```json
 {
   "temporal.debugLanguage": "python",
-  "temporal.debugger.backgroundProcess.command": "tdlv",
-  "temporal.debugger.backgroundProcess.args": [
-    "--lang=python",
-    "--install",
-    "--quiet",
-    "--entrypoint",
-    "${workspaceFolder}/vscode-replay.py"
-  ]
+  "temporal.replayerEntryPoint": "replayer.py"
+  // If you want use a custom python rather the one in PATH
+  // "temporal.python": "/Your/path/to/python"
 }
 ```
 
-Make sure your Python environment has the required dependencies installed:
-
-```bash
-pip install temporalio replayer-adapter-python
-```
-
-### Languages
-
-You can choose which language to debug via the `temporal.debugLanguage` setting. Supported values:
-
-- `typescript` (default)
-- `go`
-- `java`
-- `python`
-
-Set it in your workspace settings:
-
-```json
-{
-  "temporal.debugLanguage": "go"
-}
-```
-
-### Background Process
-
-The extension supports running a background process before starting the debug session. This process will be automatically terminated when the debug session ends.
-
-Configure through VS Code settings:
-
-```json
-{
-  "temporal.debugger.backgroundProcess.command": "npm",
-  "temporal.debugger.backgroundProcess.args": ["run", "start"],
-  "temporal.debugger.backgroundProcess.options": {
-    "cwd": "./server",
-    "env": {
-      "PORT": "3000"
-    }
-  }
-}
-```
-
-Common use cases:
-
-- Starting a Temporal server before debugging
-- Running setup scripts or initialization processes
-
-The extension uses graceful termination (SIGTERM) first, then forceful termination (SIGKILL) if needed. Process output is logged to the VS Code console.
-
-### Adapter integration (IDE server)
-
-When a history is loaded in the panel, the extension starts a local server used by language adapters:
-
-- Address: `http://127.0.0.1:54578`
-- Endpoints:
-  - `GET /history` – returns the workflow history (JSON bytes)
-  - `GET /breakpoints` – returns the enabled breakpoint event IDs
-  - `POST /current-event` – highlight the current event in the UI
-
-Adapters may honor the `WFDBG_HISTORY_PORT` environment variable to override the default port.
-
-Notes:
-
-- Only Workflow code executes during replay; Activity code isn’t run (effects are driven by history).
+4. Run "Temporal: Open Panel"
+5. Enter a Workflow Id or choose a history JSON file
+6. Click `Load History`
+7. Select history events that you want the workflow to be stopped on
+8. Hit `Start debug session`

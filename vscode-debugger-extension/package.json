@@ -1,7 +1,7 @@
 {
   "name": "temporal-workflow-debugger",
   "displayName": "Temporal workflow debugger",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Debug workflows by setting breakpoints in workflow history and workflow code.",
   "categories": [
     "Debuggers",
