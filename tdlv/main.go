@@ -932,7 +932,17 @@ func startJavaDebug(stopCh chan struct{}) {
 
 	ctx := context.Background()
 
-	// Start Eclipse JDT LS
+	// Create dropins directory and copy debug plugin
+	dropinsDir := filepath.Join(configDir, "dropins")
+	os.MkdirAll(dropinsDir, 0755)
+	debugPluginInDropins := filepath.Join(dropinsDir, "com.microsoft.java.debug.plugin.jar")
+
+	// Copy debug plugin to dropins directory so JDT LS can load it
+	if err := copyFile(debugPluginPath, debugPluginInDropins); err != nil {
+		log.Printf("Warning: Failed to copy debug plugin to dropins: %v", err)
+	}
+
+	// Start Eclipse JDT LS (debug plugin will be loaded automatically from dropins)
 	cmd := exec.CommandContext(ctx, "java",
 		"-Declipse.application=org.eclipse.jdt.ls.core.id1",
 		"-Dosgi.bundles.defaultStartLevel=4",
@@ -984,6 +994,23 @@ func requireFlags(names ...string) {
 		flag.Usage()
 		os.Exit(2)
 	}
+}
+
+func copyFile(src, dst string) error {
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer sourceFile.Close()
+
+	destFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer destFile.Close()
+
+	_, err = io.Copy(destFile, sourceFile)
+	return err
 }
 
 func init() {
