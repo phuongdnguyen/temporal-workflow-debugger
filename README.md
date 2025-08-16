@@ -20,20 +20,13 @@ This debugger solves these challenges by leveraging the **workflow replayer** - 
 ###
 - **Multi-language Support**: Works with Go, TypeScript/Node.js, and Python via adapters
 - **VS Code Extension**: Open a panel, load history, set event breakpoints, and replay with your adapter
-- **Event-based Breakpoints**: Set breakpoints on specific workflow history events
-
-## Who Is This For?
-
-- **Temporal Workflow Developers**: Anyone building workflows with Temporal's SDK
-
-Whether you're debugging a complex workflow that's failing in production or just want a better development experience while building new workflows, this debugger provides the tools you need to understand and fix your Temporal workflow code efficiently.
-
+- **History Event-based Breakpoints**: Set breakpoints on specific workflow history events
 
 ## Installation
 
 ### Prerequisites
 
-1. **Install tdlv debugger** from [GitHub Release](https://github.com/phuongdnguyen/temporal-workflow-debugger/releases/tag/tdlv-v0.0.1)
+1. **Install tdlv debugger** from [GitHub Release](https://github.com/phuongdnguyen/temporal-workflow-debugger/releases/tag/tdlv-v0.0.2)
 
    Verify installation:
    ```bash
@@ -59,7 +52,7 @@ Whether you're debugging a complex workflow that's failing in production or just
 
 ### IDE Plugins
 
-**VS Code** (Go, Python, JavaScript): 
+**VS Code** : 
 <a href="https://marketplace.visualstudio.com/items?itemName=phuongdnguyen.temporal-workflow-debugger"><img src="https://img.shields.io/badge/Install%20from%20VS%20Code%20Marketplace-007ACC?logo=visual-studio-code&logoColor=white" alt="Install from VS Code Marketplace"></a>
 
 ### Replayers
@@ -94,60 +87,103 @@ To connect to different servers:
 - Edit `Address` field
 - For TLS (Temporal Cloud): check box and select client cert/key
 
-#### Language Configuration
-
-Set your debugging language in workspace settings:
-
-```json
-{
-  "temporal.debugLanguage": "go"  // "typescript", "python", "java"
-}
-```
-
-#### Entrypoint Configuration
-
-**TypeScript/JavaScript**
-```json
-{
-  "temporal.replayerEntryPoint": "src/debug-replayer.ts"
-}
-```
-
-**Go**
-```json
-{
-  "temporal.debugLanguage": "go",
-  "temporal.replayerEntrypoint": "main.go"
-}
-```
-
-**Python**
-```json
-{
-  "temporal.debugLanguage": "python",
-  "temporal.replayerEntrypoint": "replayer.py"
-}
-```
-
-### Replayer setup
+### Debug setup
 Tested language version
 - Go 1.19+.
 - NodeJS v22.17.0, Npm 10.9.2
 - Python 3.12.11
 
-#### Go Example
+
+#### TypeScript
+
+Create a small `replayer.ts` in your project that runs the Tyepscript replayer adapter in IDE mode and registers your workflow function, for example:
+
+1. Install the replayer first:
+
+```
+npm i @phuongdnguyen/replayer-adapter-nodejs --save
+```
+
+2. Install the debugger [tdlv](https://github.com/phuongdnguyen/temporal-workflow-debugger/releases/tag/tdlv-v0.0.2) and add it to PATH
+3. Verify tldv is installed in PATH
+
+```
+tdlv --help
+Missing required flags: -lang
+
+Tdlv (Temporal delve) is a temporal workflow debugger
+
+Usage: tdlv [options]
+
+  -help
+        Tdlv (Temporal delve) is a temporal workflow debugger, provide ability to focus on user workflow code in debug sessions (alias: -h)
+  -install
+        auto-install missing language debuggers
+  -lang string
+        [required] language to use for the workflow, available options: [go, python, js]
+  -p int
+        port for remote debugging (default 60000)
+  -start
+        start debugger
+```
+
+4. Your entrypoint file should import the replayer adapter and your workflow:
+
+```typescript
+import { exampleWorkflow } from "./workflow"
+import { ReplayMode, replay } from "@phuongdnguyen/replayer-adapter-nodejs"
+
+async function main() {
+  const opts = {
+    mode: ReplayMode.IDE,
+    workerReplayOptions: {
+      workflowsPath: require.resolve("./workflow.ts"),
+    },
+  }
+
+  await replay(opts, exampleWorkflow)
+}
+
+if (require.main === module) {
+  main().catch((error) => {
+    console.error("Error:", error)
+    process.exit(1)
+  })
+}
+```
+
+5. Open or create `.vscode/settings.json` and add the config field:
+
+```json
+{
+  "temporal.replayerEntryPoint": "replayer.ts"
+}
+```
+
+_Note that the file must be within your project directory so it can find `node_modules/`._
+
+#### Go
+
+1. Get the replayer code
+
+```
+go get -u github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go@latest
+```
+
+2. Create a small `main.go` in your project that runs the Go replayer adapter in IDE mode and registers your workflow function, for example:
+
 ```go
 package main
 
 import (
     "go.temporal.io/sdk/worker"
-    replayeradapter "github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go"
+    replayer_adapter_go "github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go"
     "example/pkg/workflows"
 )
 
 func main() {
-    replayeradapter.SetReplayMode(replayeradapter.ReplayModeIde)
-    err := replayeradapter.Replay(replayeradapter.ReplayOptions{
+    replayer_adapter_go.SetReplayMode(replayer_adapter_go.ReplayModeIde)
+    err := replayer_adapter_go.Replay(replayer_adapter_go.ReplayOptions{
         WorkerReplayOptions: worker.WorkflowReplayerOptions{DisableDeadlockDetection: true},
     }, workflows.ExampleWorkflow)
     if err != nil {
@@ -156,33 +192,31 @@ func main() {
 }
 ```
 
-#### TypeScript/Node.js Example
-```typescript
-import { exampleWorkflow } from './workflow';
-import { ReplayMode, replay } from '@phuongdnguyen/replayer-adapter-nodejs';
+3. Configure the extension:
 
-async function main() {
-    const opts = {
-        mode: ReplayMode.IDE,
-        workerReplayOptions: {
-            workflowsPath: require.resolve('./workflow.ts'),
-            debugMode: true,
-        },
-        debuggerAddr: 'http://127.0.0.1:54578'
-    };
-
-    await replay(opts, exampleWorkflow);
-}
-
-if (require.main === module) {
-    main().catch((error) => {
-        console.error('Error:', error);
-        process.exit(1);
-    });
+```json
+{
+  "temporal.debugLanguage": "go",
+  "temporal.replayerEntrypoint": "main.go"
 }
 ```
 
-#### Python Example
+4. Run "Temporal: Open Panel"
+5. Enter a Workflow Id or choose a history JSON file
+6. Click `Load History`
+7. Select history events that you want the workflow to be stopped on
+8. Hit `Start debug session`
+
+#### Python
+
+1. Make sure your Python environment has the required dependencies installed:
+
+```bash
+pip install temporalio replayer-adapter-python
+```
+
+2. Create a small script (e.g. `replayer.py`) that uses the Python replayer adapter in IDE mode and references your workflow:
+
 ```python
 import asyncio
 from replayer_adapter_python.replayer import (
@@ -191,14 +225,41 @@ from replayer_adapter_python.replayer import (
 from workflow import UserOnboardingWorkflow
 
 async def main():
-    set_replay_mode(ReplayMode.IDE)
-    opts = ReplayOptions(worker_replay_options={})
-    result = await replay(opts, UserOnboardingWorkflow)
-    print(f"Result: {result}")
+    """Run ide examples"""
+    try:
+        # Set up ide mode
+        set_replay_mode(ReplayMode.IDE)
+
+        # Create replay options
+        opts = ReplayOptions(
+            worker_replay_options={},
+        )
+        result = await replay(opts, UserOnboardingWorkflow)
+        print(f"Result: {result}")
+    except Exception as e:
+        print(f"Replay failed: {e}")
 
 if __name__ == "__main__":
     asyncio.run(main())
 ```
+
+3. Configure the extension:
+
+```json
+{
+  "temporal.debugLanguage": "python",
+  "temporal.replayerEntryPoint": "replayer.py"
+  // If you want use a custom python rather the one in PATH
+  // "temporal.python": "/Your/path/to/python"
+}
+```
+
+4. Run "Temporal: Open Panel"
+5. Enter a Workflow Id or choose a history JSON file
+6. Click `Load History`
+7. Select history events that you want the workflow to be stopped on
+8. Hit `Start debug session`
+
 
 ## Architecture
 
