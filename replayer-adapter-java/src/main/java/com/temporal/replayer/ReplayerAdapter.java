@@ -27,6 +27,7 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import io.temporal.internal.common.HistoryJsonUtils;
 
 /**
  * Main adapter class for debugging Temporal workflows by replaying execution history.
@@ -324,9 +325,78 @@ public class ReplayerAdapter {
         TestWorkflowEnvironment testEnv = TestWorkflowEnvironment.newInstance(testEnvOptions);
 
         try {
-            // 3. Read and parse JSON file using Temporal SDK utilities, then use with environment
+            // 3. Read JSON file and convert from simplified format to protobuf format
             String jsonContent = new String(Files.readAllBytes(Paths.get(jsonFileName)));
-            WorkflowExecutionHistory history = WorkflowExecutionHistory.fromJson(jsonContent);
+            logger.info("Original JSON content length: {}", jsonContent.length());
+            
+            // Check if eventType field is present in the first event
+            if (jsonContent.contains("\"eventType\"")) {
+                logger.info("Original JSON contains eventType field");
+                // Extract the first eventType value for debugging
+                int eventTypeIndex = jsonContent.indexOf("\"eventType\"");
+                int startQuote = jsonContent.indexOf("\"", eventTypeIndex + 12);
+                int endQuote = jsonContent.indexOf("\"", startQuote + 1);
+                if (startQuote > 0 && endQuote > startQuote) {
+                    String firstEventType = jsonContent.substring(startQuote + 1, endQuote);
+                    logger.info("First eventType in original JSON: {}", firstEventType);
+                }
+            } else {
+                logger.warn("Original JSON does NOT contain eventType field!");
+            }
+            
+            // Determine if we need to convert the JSON format
+            String protoJson;
+            if (jsonContent.contains("EVENT_TYPE_")) {
+                // JSON is already in protobuf format, no conversion needed
+                logger.info("JSON is already in protobuf format, skipping conversion");
+                protoJson = jsonContent;
+            } else {
+                // Convert from simplified format (e.g., "WorkflowExecutionStarted") to protobuf format (e.g., "EVENT_TYPE_WORKFLOW_EXECUTION_STARTED")
+                logger.info("Converting from simplified format to protobuf format");
+                protoJson = HistoryJsonUtils.historyFormatJsonToProtoJson(jsonContent);
+            }
+            
+            logger.info("Final JSON length: {}", protoJson.length());
+            
+            // Check if eventType field is present in the final JSON
+            if (protoJson.contains("\"eventType\"")) {
+                logger.info("Final JSON contains eventType field");
+                // Extract the first eventType value for debugging
+                int eventTypeIndex = protoJson.indexOf("\"eventType\"");
+                int startQuote = protoJson.indexOf("\"", eventTypeIndex + 12);
+                int endQuote = protoJson.indexOf("\"", startQuote + 1);
+                if (startQuote > 0 && endQuote > startQuote) {
+                    String firstEventType = protoJson.substring(startQuote + 1, endQuote);
+                    logger.info("First eventType in final JSON: {}", firstEventType);
+                }
+            } else {
+                logger.warn("Final JSON does NOT contain eventType field!");
+            }
+            
+            // Parse the JSON using protobuf parser
+            com.google.protobuf.util.JsonFormat.Parser parser = com.google.protobuf.util.JsonFormat.parser().ignoringUnknownFields();
+            io.temporal.api.history.v1.History.Builder historyBuilder = io.temporal.api.history.v1.History.newBuilder();
+            
+            try {
+                parser.merge(protoJson, historyBuilder);
+            } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+                throw new RuntimeException("Failed to parse JSON to protobuf: " + e.getMessage(), e);
+            }
+            
+            io.temporal.api.history.v1.History historyProto = historyBuilder.build();
+            logger.info("Successfully parsed history with {} events", historyProto.getEventsCount());
+            
+            // Debug: Check the first event's eventType
+            if (historyProto.getEventsCount() > 0) {
+                io.temporal.api.history.v1.HistoryEvent firstEvent = historyProto.getEvents(0);
+                logger.info("First event eventType: {}", firstEvent.getEventType());
+                logger.info("First event has workflowExecutionStartedEventAttributes: {}", firstEvent.hasWorkflowExecutionStartedEventAttributes());
+            }
+            
+            // Create WorkflowExecutionHistory from the parsed protobuf
+            WorkflowExecutionHistory history = new WorkflowExecutionHistory(historyProto);
+            
+            // 4. Replay the workflow
             WorkflowReplayer.replayWorkflowExecution(history, testEnv, workflow);
         } finally {
             testEnv.close();

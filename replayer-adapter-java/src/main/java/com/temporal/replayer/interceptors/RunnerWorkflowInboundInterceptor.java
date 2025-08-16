@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import io.temporal.workflow.WorkflowInfo;
 
 /**
  * Workflow inbound interceptor that tracks workflow execution entry points.
@@ -109,7 +110,19 @@ public class RunnerWorkflowInboundInterceptor extends WorkflowInboundCallsInterc
     @Override
     public Object newCallbackThread(Runnable runnable, @Nullable String name) {
         try {
-            ReplayerAdapter.raiseSentinelBreakpoint("NewCallbackThread", Workflow.getInfo());
+            // Only try to get workflow info if we're in a workflow context
+            WorkflowInfo workflowInfo = null;
+            try {
+                // Check if we're in a workflow context before calling getInfo
+                if (Workflow.isReplaying()) {
+                    workflowInfo = Workflow.getInfo();
+                }
+            } catch (Exception e) {
+                logger.debug("Could not get workflow info in newCallbackThread: {}", e.getMessage());
+                // Continue without workflow info
+            }
+            
+            ReplayerAdapter.raiseSentinelBreakpoint("NewCallbackThread", workflowInfo);
             
             return super.newCallbackThread(runnable, name);
         } catch (Exception e) {
