@@ -1,7 +1,7 @@
 <h1 align="center">
   <br>
   <br>
-    <img src="./banner.png" alt="Temporal workflow debugger">
+    <img src="https://raw.githubusercontent.com/phuongdnguyen/temporal-workflow-debugger/ad698d27dec8950cf83b629df47763223edbceab/vscode-debugger-extension/banner.png" alt="Temporal workflow debugger">
   <br>
 </h1>
 

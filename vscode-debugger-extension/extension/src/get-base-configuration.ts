@@ -16,7 +16,7 @@ const getExecutableFromConfig = (): string => {
   return vscode.workspace.getConfiguration("temporal").get(lang) as string
 }
 
-type SupportedLanguage = "typescript" | "go" | "java" | "python"
+type SupportedLanguage = "typescript" | "go" | "python"
 
 export function getDependencies(lang: SupportedLanguage): string {
   switch (lang) {
@@ -99,9 +99,6 @@ export const getBaseConfiguration = async (): Promise<vscode.DebugConfiguration>
 
     case "go":
       return { ...goConfiguration }
-
-    case "java":
-      return { ...javaConfiguration }
 
     case "python":
       // reload executable when user restart the debug "project"

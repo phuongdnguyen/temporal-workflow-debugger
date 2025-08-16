@@ -701,8 +701,6 @@ export class HistoryDebuggerPanel {
         return "Make sure you have the TypeScript extension installed and ts-node available."
       case "go":
         return "Make sure you have the Go extension installed and delve debugger available."
-      case "java":
-        return "Make sure you have the Java extension pack installed."
       case "python":
         return "Make sure you have the Python extension installed."
       default:
