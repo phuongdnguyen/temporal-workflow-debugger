@@ -34,6 +34,16 @@ const (
 	jsDebugDir     = ".js-debug-dap"
 )
 
+// Java Debug configuration
+const (
+	jdtlsVersion           = "1.40.0"
+	jdtlsURL               = "https://download.eclipse.org/jdtls/snapshots/jdt-language-server-latest.tar.gz"
+	jdtlsDir               = ".jdt-language-server"
+	vscodeJavaDebugVersion = "0.53.1"
+	vscodeJavaDebugURL     = "https://github.com/microsoft/java-debug/archive/refs/tags/" + vscodeJavaDebugVersion + ".tar.gz"
+	vscodeJavaDebugDir     = ".vscode-java-debug"
+)
+
 func main() {
 	// -----------------------------------------------
 	// Command-line flags
@@ -45,7 +55,7 @@ func main() {
 	flag.IntVar(&proxyPort, "p", 60000, "port for remote debugging")
 
 	var lang string
-	flag.StringVar(&lang, "lang", "", "[required] language to use for the workflow, available options: [go, python, js]")
+	flag.StringVar(&lang, "lang", "", "[required] language to use for the workflow, available options: [go, python, js, java]")
 
 	var install bool
 	flag.BoolVar(&install, "install", false, "auto-install missing language debuggers")
@@ -99,6 +109,15 @@ func main() {
 		}
 		if start {
 			startJsDebug(debuggerStopCh)
+		}
+	case "java":
+		if err := ensureJavaDebugAvailable(install); err != nil {
+			log.Printf("Java Debug dependency issue: %v", err)
+			printJavaDebugInstallationGuidance()
+			os.Exit(1)
+		}
+		if start {
+			startJavaDebug(debuggerStopCh)
 		}
 	default:
 		log.Fatalf("Unknown lang: %s", lang)
@@ -247,6 +266,56 @@ func ensureJsDebugAvailable(autoInstall bool) error {
 	return setupJsDebug()
 }
 
+// ensureJavaDebugAvailable checks if Java, Eclipse JDT LS, and vscode-java-debug are available
+func ensureJavaDebugAvailable(autoInstall bool) error {
+	// Check if java is available
+	if _, err := exec.LookPath("java"); err != nil {
+		return fmt.Errorf("java not found in PATH (required for Java debugging)")
+	}
+
+	// Check Java version (needs Java 21+)
+	cmd := exec.Command("java", "-version")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to check Java version: %w", err)
+	}
+
+	outputStr := string(output)
+	log.Printf("Java version check: %s", strings.TrimSpace(outputStr))
+
+	// Check if Eclipse JDT LS is already set up
+	jdtlsPath := getJdtlsPath()
+	launcherPath := filepath.Join(jdtlsPath, "plugins", "org.eclipse.equinox.launcher_*.jar")
+
+	matches, err := filepath.Glob(launcherPath)
+	if err == nil && len(matches) > 0 {
+		log.Printf("Found Eclipse JDT LS at %s", jdtlsPath)
+	} else {
+		if !autoInstall {
+			return fmt.Errorf("eclipse JDT Language Server not found (required for Java debugging)")
+		}
+		log.Println("Eclipse JDT LS not found, will install it")
+		if err := setupJdtls(); err != nil {
+			return fmt.Errorf("failed to setup Eclipse JDT LS: %w", err)
+		}
+	}
+
+	// Check if vscode-java-debug is already built
+	debugPluginPath := getVscodeJavaDebugPluginPath()
+	if _, err := os.Stat(debugPluginPath); err == nil {
+		log.Printf("Found vscode-java-debug plugin at %s", debugPluginPath)
+		return nil
+	}
+
+	// vscode-java-debug not found
+	if !autoInstall {
+		return fmt.Errorf("vscode-java-debug not found (required for Java debugging)")
+	}
+
+	log.Println("vscode-java-debug not found, will build it")
+	return setupVscodeJavaDebug()
+}
+
 // getJsDebugPath returns the path where js-debug-dap should be installed
 func getJsDebugPath() string {
 	// Use a cache directory in the user's home directory or system temp
@@ -255,6 +324,31 @@ func getJsDebugPath() string {
 		return filepath.Join(os.TempDir(), "tdlv-cache", jsDebugDir)
 	}
 	return filepath.Join(homeDir, ".cache", "tdlv", jsDebugDir)
+}
+
+// getJdtlsPath returns the path where Eclipse JDT LS should be installed
+func getJdtlsPath() string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(os.TempDir(), "tdlv-cache", jdtlsDir)
+	}
+	return filepath.Join(homeDir, ".cache", "tdlv", jdtlsDir)
+}
+
+// getVscodeJavaDebugPath returns the path where vscode-java-debug should be installed
+func getVscodeJavaDebugPath() string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(os.TempDir(), "tdlv-cache", vscodeJavaDebugDir)
+	}
+	return filepath.Join(homeDir, ".cache", "tdlv", vscodeJavaDebugDir)
+}
+
+// getVscodeJavaDebugPluginPath returns the path to the built debug plugin JAR
+func getVscodeJavaDebugPluginPath() string {
+	basePath := getVscodeJavaDebugPath()
+	return filepath.Join(basePath, "java-debug-"+vscodeJavaDebugVersion,
+		"com.microsoft.java.debug.plugin", "target", "com.microsoft.java.debug.plugin-"+vscodeJavaDebugVersion+".jar")
 }
 
 // setupJsDebug downloads and sets up the js-debug-dap package
@@ -441,6 +535,135 @@ func extractTarGz(src, dest string) error {
 	return nil
 }
 
+// setupJdtls downloads and sets up Eclipse JDT Language Server
+func setupJdtls() error {
+	jdtlsPath := getJdtlsPath()
+
+	log.Printf("Setting up Eclipse JDT LS in %s", jdtlsPath)
+
+	// Create cache directory
+	if err := os.MkdirAll(jdtlsPath, 0755); err != nil {
+		return fmt.Errorf("failed to create JDT LS directory: %w", err)
+	}
+
+	// Download JDT LS
+	tarGzPath := filepath.Join(jdtlsPath, "jdt-language-server.tar.gz")
+	if err := downloadFile(jdtlsURL, tarGzPath); err != nil {
+		return fmt.Errorf("failed to download JDT LS: %w", err)
+	}
+
+	// Extract JDT LS
+	if err := extractTarGz(tarGzPath, jdtlsPath); err != nil {
+		return fmt.Errorf("failed to extract JDT LS: %w", err)
+	}
+
+	// Clean up tar.gz
+	os.Remove(tarGzPath)
+
+	log.Println("Eclipse JDT LS installed successfully")
+	return nil
+}
+
+// setupVscodeJavaDebug downloads and builds vscode-java-debug
+func setupVscodeJavaDebug() error {
+	vscodeJavaDebugPath := getVscodeJavaDebugPath()
+
+	log.Printf("Setting up vscode-java-debug in %s", vscodeJavaDebugPath)
+
+	// Create directory
+	if err := os.MkdirAll(vscodeJavaDebugPath, 0755); err != nil {
+		return fmt.Errorf("failed to create vscode-java-debug directory: %w", err)
+	}
+
+	// Download vscode-java-debug
+	tarGzPath := filepath.Join(vscodeJavaDebugPath, "java-debug.tar.gz")
+	if err := downloadFile(vscodeJavaDebugURL, tarGzPath); err != nil {
+		return fmt.Errorf("failed to download vscode-java-debug: %w", err)
+	}
+
+	// Extract
+	if err := extractTarGz(tarGzPath, vscodeJavaDebugPath); err != nil {
+		return fmt.Errorf("failed to extract vscode-java-debug: %w", err)
+	}
+
+	// Clean up tar.gz
+	os.Remove(tarGzPath)
+
+	// Build the plugin
+	buildDir := filepath.Join(vscodeJavaDebugPath, "java-debug-"+vscodeJavaDebugVersion)
+	if err := buildJavaDebugPlugin(buildDir); err != nil {
+		return fmt.Errorf("failed to build vscode-java-debug: %w", err)
+	}
+
+	log.Println("vscode-java-debug built successfully")
+	return nil
+}
+
+// buildJavaDebugPlugin builds the vscode-java-debug plugin using Maven
+func buildJavaDebugPlugin(buildDir string) error {
+	log.Println("Building vscode-java-debug plugin...")
+
+	// Check if mvn or mvnw is available
+	var cmd *exec.Cmd
+	mvnwPath := filepath.Join(buildDir, "mvnw")
+	if _, err := os.Stat(mvnwPath); err == nil {
+		cmd = exec.Command(mvnwPath, "clean", "install", "-DskipTests")
+	} else if _, err := exec.LookPath("mvn"); err == nil {
+		cmd = exec.Command("mvn", "clean", "install", "-DskipTests")
+	} else {
+		return fmt.Errorf("neither mvnw nor mvn found - Maven is required to build vscode-java-debug")
+	}
+
+	cmd.Dir = buildDir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("maven build failed: %w", err)
+	}
+
+	return nil
+}
+
+// downloadFile downloads a file from URL to filepath with progress indication
+func downloadFile(url, filepath string) error {
+	log.Printf("Downloading from %s", url)
+
+	// Create HTTP client with timeout
+	client := &http.Client{
+		Timeout: 5 * time.Minute,
+	}
+
+	// Create the request
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set user agent
+	req.Header.Set("User-Agent", "tdlv-debugger/1.0")
+
+	// Execute the request
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("download failed: %s", resp.Status)
+	}
+
+	out, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, resp.Body)
+	return err
+}
+
 // printDelveInstallationGuidance provides helpful installation instructions
 func printDelveInstallationGuidance() {
 	fmt.Println("\n=== Delve Installation Guide ===")
@@ -502,6 +725,56 @@ func printJsDebugInstallationGuidance() {
 	fmt.Printf("   Download: %s\n", jsDebugURL)
 	fmt.Printf("   Extract to: %s\n", getJsDebugPath())
 	fmt.Println("\nFor more details: https://github.com/microsoft/vscode-js-debug")
+}
+
+// printJavaDebugInstallationGuidance provides helpful installation instructions
+func printJavaDebugInstallationGuidance() {
+	fmt.Println("\n" + strings.Repeat("=", 60))
+	fmt.Println("Java Debug Setup Required")
+	fmt.Println(strings.Repeat("=", 60))
+	fmt.Println("\nTo debug Java applications, you need:")
+	fmt.Println("1. Java 21 or later")
+	fmt.Println("2. Eclipse JDT Language Server")
+	fmt.Println("3. vscode-java-debug plugin")
+	fmt.Println("4. Maven (for building the debug plugin)")
+
+	fmt.Println("\nPrerequisites:")
+	fmt.Println("1. Install Java 21+:")
+	fmt.Println("   Visit: https://adoptium.net/")
+
+	switch runtime.GOOS {
+	case "darwin":
+		fmt.Println("   Or: brew install openjdk@21")
+	case "linux":
+		fmt.Println("   Or: apt-get install openjdk-21-jdk  # Ubuntu/Debian")
+		fmt.Println("       dnf install java-21-openjdk     # Fedora")
+	case "windows":
+		fmt.Println("   Or: choco install openjdk21         # Chocolatey")
+		fmt.Println("       scoop install openjdk21         # Scoop")
+	}
+
+	fmt.Println("\n2. Install Maven:")
+	fmt.Println("   Visit: https://maven.apache.org/install.html")
+
+	switch runtime.GOOS {
+	case "darwin":
+		fmt.Println("   Or: brew install maven")
+	case "linux":
+		fmt.Println("   Or: apt-get install maven           # Ubuntu/Debian")
+		fmt.Println("       dnf install maven               # Fedora")
+	case "windows":
+		fmt.Println("   Or: choco install maven             # Chocolatey")
+		fmt.Println("       scoop install maven             # Scoop")
+	}
+
+	fmt.Println("\nAutomatic setup:")
+	fmt.Printf("   %s --lang=java --install\n", os.Args[0])
+	fmt.Println("\nManual setup:")
+	fmt.Printf("   1. Download Eclipse JDT LS: %s\n", jdtlsURL)
+	fmt.Printf("   2. Extract to: %s\n", getJdtlsPath())
+	fmt.Printf("   3. Download vscode-java-debug: %s\n", vscodeJavaDebugURL)
+	fmt.Printf("   4. Extract and build with Maven\n")
+	fmt.Println("\nFor more details: https://github.com/microsoft/java-debug")
 }
 
 func startDelve(stopCh chan struct{}) {
@@ -619,6 +892,79 @@ func startJsDebug(stopCh chan struct{}) {
 			log.Printf("Error killing JS debug: %v", err)
 		}
 		log.Println("JS debug stopped")
+		stopCh <- struct{}{}
+	}()
+}
+
+func startJavaDebug(stopCh chan struct{}) {
+	workingDir, err := os.Getwd()
+	if err != nil {
+		log.Fatal(fmt.Errorf("error getting working directory: %w", err))
+	}
+
+	jdtlsPath := getJdtlsPath()
+	debugPluginPath := getVscodeJavaDebugPluginPath()
+
+	// Find the launcher JAR
+	launcherPattern := filepath.Join(jdtlsPath, "plugins", "org.eclipse.equinox.launcher_*.jar")
+	matches, err := filepath.Glob(launcherPattern)
+	if err != nil || len(matches) == 0 {
+		log.Fatal("Eclipse JDT LS launcher not found")
+	}
+	launcherJar := matches[0]
+
+	// Determine config directory based on OS
+	var configDir string
+	switch runtime.GOOS {
+	case "linux":
+		configDir = filepath.Join(jdtlsPath, "config_linux")
+	case "darwin":
+		configDir = filepath.Join(jdtlsPath, "config_mac")
+	case "windows":
+		configDir = filepath.Join(jdtlsPath, "config_win")
+	default:
+		configDir = filepath.Join(jdtlsPath, "config_linux")
+	}
+
+	// Create workspace directory
+	workspaceDir := filepath.Join(os.TempDir(), "tdlv-java-workspace")
+	os.MkdirAll(workspaceDir, 0755)
+
+	ctx := context.Background()
+
+	// Start Eclipse JDT LS
+	cmd := exec.CommandContext(ctx, "java",
+		"-Declipse.application=org.eclipse.jdt.ls.core.id1",
+		"-Dosgi.bundles.defaultStartLevel=4",
+		"-Declipse.product=org.eclipse.jdt.ls.core.product",
+		"-jar", launcherJar,
+		"-configuration", configDir,
+		"-data", workspaceDir,
+		"--add-modules=ALL-SYSTEM",
+		"--add-opens", "java.base/java.util=ALL-UNNAMED",
+		"--add-opens", "java.base/java.lang=ALL-UNNAMED")
+
+	cmd.Dir = workingDir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	// Set environment for debug plugin
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("JAVA_DEBUG_PLUGIN=%s", debugPluginPath))
+
+	go func() {
+		log.Println("Starting Eclipse JDT LS with vscode-java-debug plugin on :2345")
+		if err := cmd.Run(); err != nil {
+			log.Printf("Error running Eclipse JDT LS: %v", err)
+		}
+	}()
+
+	go func() {
+		<-stopCh
+		if err := cmd.Process.Kill(); err != nil {
+			log.Printf("Error killing Eclipse JDT LS: %v", err)
+		}
+		log.Println("Java debugger stopped")
 		stopCh <- struct{}{}
 	}()
 }
