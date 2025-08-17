@@ -6,6 +6,7 @@
 [![Typescript Replayer](https://badge.fury.io/js/@phuongdnguyen%2Freplayer-adapter-nodejs.svg)](https://badge.fury.io/js/@phuongdnguyen%2Freplayer-adapter-nodejs)
 
 ## Introduction
+TLDR: watch the [demo](https://www.youtube.com/watch?v=8XKKz0iotow&t=50s).
 
 A comprehensive debugging solution that enables step-through debugging of [Temporal](https://github.com/temporalio/temporal) workflows. Unlike traditional debuggers that aren't aware of Temporal's execution model, this debugger provides a seamless development experience by allowing you to set breakpoints, inspect variables, and trace execution flow within your workflow code.
 
@@ -17,7 +18,6 @@ This debugger solves these challenges by leveraging the **workflow replayer** - 
 
 ## Key Features
 
-###
 - **Multi-language Support**: Works with Go, TypeScript/Node.js, and Python via adapters
 - **VS Code Extension**: Open a panel, load history, set event breakpoints, and replay with your adapter
 - **History Event-based Breakpoints**: Set breakpoints on specific workflow history events
