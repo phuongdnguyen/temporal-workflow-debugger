@@ -14,17 +14,7 @@ async function main() {
             mode: ReplayMode.IDE,
             workerReplayOptions: {
                 workflowsPath: require.resolve('./workflow.ts'),
-                bundlerOptions: {
-                    ignoreModules: [
-                        'fs/promises',
-                        '@temporalio/worker',
-                        'path',
-                        'child_process'
-                    ]
-                },
-                debugMode: true,
             },
-            debuggerAddr: 'http://127.0.0.1:54578'
         } as any; // adapter types
 
         await replay(opts, exampleWorkflow);

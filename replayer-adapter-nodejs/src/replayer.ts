@@ -52,7 +52,7 @@ export async function replay(opts: ReplayOptions, workflow: any): Promise<void> 
     const standaloneBreakpoints = opts.breakpoints || [];
     (globalThis as any).fetchBreakpointsFromWorkflow = () => standaloneBreakpoints;
     (globalThis as any).getDebuggerAddr = () => null; // No debugger address in standalone mode
-    
+
 
     return replayWithJsonFile(opts.workerReplayOptions || {}, workflow, opts.historyFilePath!, opts);
   } else {
@@ -116,6 +116,15 @@ export const replayConfig = {
         ...interceptors,
         workflowModules,
       },
+      bundlerOptions: {
+        ignoreModules: [
+          'fs/promises',
+          '@temporalio/worker',
+          'path',
+          'child_process'
+        ]
+      },
+      debugMode: true,
     };
 
     return await Worker.runReplayHistory(workerReplayOptions, hist);
