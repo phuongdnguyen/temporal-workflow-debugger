@@ -8,6 +8,7 @@ replace example => ../workflow-code/
 
 require (
 	example v0.0.0-00010101000000-000000000000
+	github.com/phuongdnguyen/temporal-workflow-replay-debugger/replayer-adapter-go v0.0.0-20250823042004-17ca683346bc
 	go.temporal.io/sdk v1.35.0
 )
 
@@ -20,7 +21,6 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.1 // indirect
 	github.com/nexus-rpc/sdk-go v0.4.0 // indirect
-	github.com/phuongdnguyen/temporal-workflow-replay-debugger/replayer-adapter-go v0.0.0-20250815104817-6346dbedc12e // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/robfig/cron v1.2.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect

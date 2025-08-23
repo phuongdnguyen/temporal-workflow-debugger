@@ -5,7 +5,7 @@ go 1.23.0
 toolchain go1.23.11
 
 require (
-	github.com/phuongdnguyen/temporal-workflow-replay-debugger/replayer-adapter-go v0.0.0-20250815104817-6346dbedc12e
+	github.com/phuongdnguyen/temporal-workflow-replay-debugger/replayer-adapter-go v0.0.0-20250823042004-17ca683346bc
 	go.temporal.io/sdk v1.35.0
 )
 

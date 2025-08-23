@@ -18,7 +18,6 @@ async function main() {
                     ignoreModules: [
                         'fs/promises',
                         '@temporalio/worker',
-                        // 'http',
                         'path',
                         'child_process'
                     ]
