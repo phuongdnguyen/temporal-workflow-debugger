@@ -36,6 +36,16 @@ Repository = "https://github.com/phuongdnguyen/temporal-workflow-replay-debugger
 Issues = "https://github.com/phuongdnguyen/temporal-workflow-replay-debugger/issues"
 Documentation = "https://github.com/phuongdnguyen/temporal-workflow-replay-debugger/blob/main/replayer-adapter-python/README.md"
 
+# GitHub Packages configuration
+[tool.twine.repository.pypi]
+username = "__token__"
+password = "${{ secrets.PYPI_TOKEN }}"
+
+[tool.twine.repository.github]
+repository = "https://github.com/phuongdnguyen/temporal-workflow-replay-debugger"
+username = "__token__"
+password = "${{ secrets.GITHUB_TOKEN }}"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=6.0",

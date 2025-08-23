@@ -46,6 +46,13 @@ jobs:
           cd replayer-adapter-go
           go build -v ./...
           
+      - name: Create release assets
+        if: startsWith(github.ref, 'refs/tags/replayer-adapter-go-v')
+        run: |
+          cd replayer-adapter-go
+          # Create a source archive
+          tar -czf temporal-replayer-adapter-go-${{ github.ref_name }}.tar.gz --exclude='.git' --exclude='*.tar.gz' .
+          
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/replayer-adapter-go-v')
         uses: actions/create-release@v1
@@ -67,16 +74,32 @@ jobs:
             
             ### Installation
             
+            #### From GitHub (Recommended)
             ```bash
             go get github.com/phuongdnguyen/temporal-workflow-replay-debugger/replayer-adapter-go@${{ github.ref_name }}
             ```
+            
+            #### From GitHub Packages
+            ```bash
+            # Configure GOPROXY for GitHub Packages
+            export GOPROXY=https://proxy.golang.org,direct
+            go get github.com/phuongdnguyen/temporal-workflow-replay-debugger/replayer-adapter-go@${{ github.ref_name }}
+            ```
+            
+            ### Usage
+            
+            ```go
+            import "github.com/phuongdnguyen/temporal-workflow-replay-debugger/replayer-adapter-go"
+            ```
           draft: false
           prerelease: false
+          files: |
+            replayer-adapter-go/temporal-replayer-adapter-go-${{ github.ref_name }}.tar.gz
           
       - name: Manual release creation
         if: github.event_name == 'workflow_dispatch'
         run: |
           echo "Manual release triggered for version: ${{ github.event.inputs.version }}"
           echo "To create a release, push a tag with the version:"
-          echo "git tag v${{ github.event.inputs.version }}"
-          echo "git push origin v${{ github.event.inputs.version }}" 
+          echo "git tag replayer-adapter-go-v${{ github.event.inputs.version }}"
+          echo "git push origin replayer-adapter-go-v${{ github.event.inputs.version }}" 
