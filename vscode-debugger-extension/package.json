@@ -1,7 +1,7 @@
 {
   "name": "temporal-workflow-replay-debugger",
   "displayName": "Temporal Workflow Replay Debugger",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Debug workflows by setting breakpoints in workflow history and workflow code.",
   "categories": [
     "Debuggers",
