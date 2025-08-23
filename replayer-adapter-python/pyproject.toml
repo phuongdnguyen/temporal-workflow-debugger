@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "temporal-replayer-adapter-python"
-version = "1.0.0"
+version = "1.0.2"
 description = "Python Replayer Adapter for Temporal workflows with debugging capabilities"
 authors = [
     {name = "Duy Phuong Nguyen", email = "knowledge.phuongnguyen@gmail.com"}
@@ -36,15 +36,7 @@ Repository = "https://github.com/phuongdnguyen/temporal-workflow-replay-debugger
 Issues = "https://github.com/phuongdnguyen/temporal-workflow-replay-debugger/issues"
 Documentation = "https://github.com/phuongdnguyen/temporal-workflow-replay-debugger/blob/main/replayer-adapter-python/README.md"
 
-# GitHub Packages configuration
-[tool.twine.repository.pypi]
-username = "__token__"
-password = "${{ secrets.PYPI_TOKEN }}"
 
-[tool.twine.repository.github]
-repository = "https://github.com/phuongdnguyen/temporal-workflow-replay-debugger"
-username = "__token__"
-password = "${{ secrets.GITHUB_TOKEN }}"
 
 [project.optional-dependencies]
 dev = [
