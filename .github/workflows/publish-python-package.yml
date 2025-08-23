@@ -75,7 +75,7 @@ jobs:
           body: |
             ## Changes in this release
             
-            This release includes updates to the Temporal Workflow Debugger Python replayer adapter.
+            This release includes updates to the Temporal Workflow Replay Debugger Python replayer adapter.
             
             ### Package: temporal-replayer-adapter-python
             

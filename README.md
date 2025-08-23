@@ -1,7 +1,8 @@
+# Temporal Workflow Replay Debugger
 <img src="docs/images/logo.svg" alt="Temporal Debugger Logo" width="200">
 
-<a href="https://marketplace.visualstudio.com/items?itemName=phuongdnguyen.temporal-workflow-debugger"><img src="https://img.shields.io/badge/Install%20from%20VS%20Code%20Marketplace-007ACC?logo=visual-studio-code&logoColor=white" alt="Install from VS Code Marketplace"></a>
-[![Go Replayer](https://pkg.go.dev/badge/github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go.svg)](https://pkg.go.dev/github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go)
+<a href="https://marketplace.visualstudio.com/items?itemName=phuongdnguyen.temporal-workflow-replay-debugger"><img src="https://img.shields.io/badge/Install%20from%20VS%20Code%20Marketplace-007ACC?logo=visual-studio-code&logoColor=white" alt="Install from VS Code Marketplace"></a>
+[![Go Replayer](https://pkg.go.dev/badge/github.com/phuongdnguyen/temporal-workflow-replay-debugger/replayer-adapter-go.svg)](https://pkg.go.dev/github.com/phuongdnguyen/temporal-workflow-replay-debugger/replayer-adapter-go)
 [![Python Replayer](https://badge.fury.io/py/temporal-replayer-adapter-python.svg)](https://badge.fury.io/py/temporal-replayer-adapter-python)
 [![Typescript Replayer](https://badge.fury.io/js/@phuongdnguyen%2Freplayer-adapter-nodejs.svg)](https://badge.fury.io/js/@phuongdnguyen%2Freplayer-adapter-nodejs)
 
@@ -26,7 +27,7 @@ This debugger solves these challenges by leveraging the **workflow replayer** - 
 
 ### Prerequisites
 
-1. **Install tdlv debugger** from [GitHub Release](https://github.com/phuongdnguyen/temporal-workflow-debugger/releases/tag/tdlv-v0.0.2)
+1. **Install tdlv debugger** from [GitHub Release](https://github.com/phuongdnguyen/temporal-workflow-replay-debugger/releases/tag/tdlv-v0.0.2)
 
    Verify installation:
    ```bash
@@ -53,12 +54,12 @@ This debugger solves these challenges by leveraging the **workflow replayer** - 
 ### IDE Plugins
 
 **VS Code** : 
-<a href="https://marketplace.visualstudio.com/items?itemName=phuongdnguyen.temporal-workflow-debugger"><img src="https://img.shields.io/badge/Install%20from%20VS%20Code%20Marketplace-007ACC?logo=visual-studio-code&logoColor=white" alt="Install from VS Code Marketplace"></a>
+<a href="https://marketplace.visualstudio.com/items?itemName=phuongdnguyen.temporal-workflow-replay-debugger"><img src="https://img.shields.io/badge/Install%20from%20VS%20Code%20Marketplace-007ACC?logo=visual-studio-code&logoColor=white" alt="Install from VS Code Marketplace"></a>
 
 ### Replayers
 
 **Use language-specific replayers to debug your workflows:**
-- **Go**: [github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go](https://pkg.go.dev/github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go) [![Go Reference](https://pkg.go.dev/badge/github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go.svg)](https://pkg.go.dev/github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go)
+- **Go**: [github.com/phuongdnguyen/temporal-workflow-replay-debugger/replayer-adapter-go](https://pkg.go.dev/github.com/phuongdnguyen/temporal-workflow-replay-debugger/replayer-adapter-go) [![Go Reference](https://pkg.go.dev/badge/github.com/phuongdnguyen/temporal-workflow-replay-debugger/replayer-adapter-go.svg)](https://pkg.go.dev/github.com/phuongdnguyen/temporal-workflow-replay-debugger/replayer-adapter-go)
 - **Python**: [temporal-replayer-adapter-python](https://pypi.org/project/temporal-replayer-adapter-python/) [![PyPI version](https://badge.fury.io/py/temporal-replayer-adapter-python.svg)](https://badge.fury.io/py/temporal-replayer-adapter-python)
 - **TypeScript**: [@phuongdnguyen/replayer-adapter-nodejs](https://www.npmjs.com/package/@phuongdnguyen/replayer-adapter-nodejs) [![npm version](https://badge.fury.io/js/@phuongdnguyen%2Freplayer-adapter-nodejs.svg)](https://badge.fury.io/js/@phuongdnguyen%2Freplayer-adapter-nodejs)
 
@@ -104,19 +105,19 @@ Create a small `replayer.ts` in your project that runs the Tyepscript replayer a
 npm i @phuongdnguyen/replayer-adapter-nodejs --save
 ```
 
-2. Install the debugger [tdlv](https://github.com/phuongdnguyen/temporal-workflow-debugger/releases/tag/tdlv-v0.0.2) and add it to PATH
+2. Install the debugger [tdlv](https://github.com/phuongdnguyen/temporal-workflow-replay-debugger/releases/tag/tdlv-v0.0.2) and add it to PATH
 3. Verify tldv is installed in PATH
 
 ```
 tdlv --help
 Missing required flags: -lang
 
-Tdlv (Temporal delve) is a temporal workflow debugger
+Tdlv (Temporal delve) is a workflow-awared debugger
 
 Usage: tdlv [options]
 
   -help
-        Tdlv (Temporal delve) is a temporal workflow debugger, provide ability to focus on user workflow code in debug sessions (alias: -h)
+        Tdlv (Temporal delve) is a workflow-awared debugger, provide ability to focus on user workflow code in debug sessions (alias: -h)
   -install
         auto-install missing language debuggers
   -lang string
@@ -167,7 +168,7 @@ _Note that the file must be within your project directory so it can find `node_m
 1. Get the replayer code
 
 ```
-go get -u github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go@latest
+go get -u github.com/phuongdnguyen/temporal-workflow-replay-debugger/replayer-adapter-go@latest
 ```
 
 2. Create a small `main.go` in your project that runs the Go replayer adapter in IDE mode and registers your workflow function, for example:
@@ -177,7 +178,7 @@ package main
 
 import (
     "go.temporal.io/sdk/worker"
-    replayer_adapter_go "github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go"
+    replayer_adapter_go "github.com/phuongdnguyen/temporal-workflow-replay-debugger/replayer-adapter-go"
     "example/pkg/workflows"
 )
 

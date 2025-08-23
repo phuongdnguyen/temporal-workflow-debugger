@@ -1,7 +1,7 @@
 <h1 align="center">
   <br>
   <br>
-    <img src="https://raw.githubusercontent.com/phuongdnguyen/temporal-workflow-debugger/ad698d27dec8950cf83b629df47763223edbceab/vscode-debugger-extension/banner.png" alt="Temporal workflow debugger">
+    <img src="https://raw.githubusercontent.com/phuongdnguyen/temporal-workflow-replay-debugger/ad698d27dec8950cf83b629df47763223edbceab/vscode-debugger-extension/banner.png" alt="Temporal Workflow Replay Debugger">
   <br>
 </h1>
 
@@ -13,7 +13,7 @@
 
 Follow these instructions:
 
-- Install [the extension](https://marketplace.visualstudio.com/items?itemName=phuongdnguyen.temporal-workflow-debugger)
+- Install [the extension](https://marketplace.visualstudio.com/items?itemName=phuongdnguyen.temporal-workflow-replay-debugger)
 
 - Follow the examples for:
 - [TypeScript](../example/js/vscode-replayer.ts)
@@ -53,19 +53,19 @@ Create a small `replayer.ts` in your project that runs the Tyepscript replayer a
 npm i @phuongdnguyen/replayer-adapter-nodejs --save
 ```
 
-2. Install the debugger [tdlv](https://github.com/phuongdnguyen/temporal-workflow-debugger/releases/tag/tdlv-v0.0.2) and add it to PATH
+2. Install the debugger [tdlv](https://github.com/phuongdnguyen/temporal-workflow-replay-debugger/releases/tag/tdlv-v0.0.2) and add it to PATH
 3. Verify tldv is installed in PATH
 
 ```
 tdlv --help
 Missing required flags: -lang
 
-Tdlv (Temporal delve) is a temporal workflow debugger
+Tdlv (Temporal delve) is a Temporal Workflow Replay Debugger
 
 Usage: tdlv [options]
 
   -help
-        Tdlv (Temporal delve) is a temporal workflow debugger, provide ability to focus on user workflow code in debug sessions (alias: -h)
+        Tdlv (Temporal delve) is a Temporal Workflow Replay Debugger, provide ability to focus on user workflow code in debug sessions (alias: -h)
   -install
         auto-install missing language debuggers
   -lang string
@@ -116,7 +116,7 @@ _Note that the file must be within your project directory so it can find `node_m
 1. Get the replayer code
 
 ```
-go get -u github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go@latest
+go get -u github.com/phuongdnguyen/temporal-workflow-replay-debugger/replayer-adapter-go@latest
 ```
 
 2. Create a small `main.go` in your project that runs the Go replayer adapter in IDE mode and registers your workflow function, for example:
@@ -126,7 +126,7 @@ package main
 
 import (
     "go.temporal.io/sdk/worker"
-    replayer_adapter_go "github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go"
+    replayer_adapter_go "github.com/phuongdnguyen/temporal-workflow-replay-debugger/replayer-adapter-go"
     "example/pkg/workflows"
 )
 

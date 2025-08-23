@@ -53,7 +53,7 @@ jobs:
       - name: Upload plugin artifact
         uses: actions/upload-artifact@v4
         with:
-          name: temporal-workflow-debugger-plugin
+          name: temporal-workflow-replay-debugger-plugin
           path: jetbrains-plugin/build/distributions/*.zip
           
       - name: Publish to JetBrains Marketplace

@@ -1,6 +1,6 @@
 {
-  "name": "temporal-workflow-debugger",
-  "displayName": "Temporal workflow debugger",
+  "name": "temporal-workflow-replay-debugger",
+  "displayName": "Temporal Workflow Replay Debugger",
   "version": "0.1.9",
   "description": "Debug workflows by setting breakpoints in workflow history and workflow code.",
   "categories": [
@@ -15,7 +15,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/phuongdnguyen/temporal-workflow-debugger",
+    "url": "https://github.com/phuongdnguyen/temporal-workflow-replay-debugger",
     "directory": "vscode-debugger-extension"
   },
   "license": "MIT",

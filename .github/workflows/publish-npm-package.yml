@@ -80,7 +80,7 @@ jobs:
           body: |
             ## Changes in this release
             
-            This release includes updates to the Temporal Workflow Debugger Node.js replayer adapter.
+            This release includes updates to the Temporal Workflow Replay Debugger Node.js replayer adapter.
             
             ### Package: @phuongdnguyen/replayer-adapter-nodejs
             

@@ -31,10 +31,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/phuongdnguyen/temporal-workflow-debugger"
-Repository = "https://github.com/phuongdnguyen/temporal-workflow-debugger"
-Issues = "https://github.com/phuongdnguyen/temporal-workflow-debugger/issues"
-Documentation = "https://github.com/phuongdnguyen/temporal-workflow-debugger/blob/main/replayer-adapter-python/README.md"
+Homepage = "https://github.com/phuongdnguyen/temporal-workflow-replay-debugger"
+Repository = "https://github.com/phuongdnguyen/temporal-workflow-replay-debugger"
+Issues = "https://github.com/phuongdnguyen/temporal-workflow-replay-debugger/issues"
+Documentation = "https://github.com/phuongdnguyen/temporal-workflow-replay-debugger/blob/main/replayer-adapter-python/README.md"
 
 [project.optional-dependencies]
 dev = [

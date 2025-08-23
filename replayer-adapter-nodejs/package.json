@@ -4,7 +4,7 @@
   "description": "Replayer adapter and interceptors for Temporal Node.js workflows",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/phuongdnguyen/temporal-workflow-debugger.git",
+    "url": "git+https://github.com/phuongdnguyen/temporal-workflow-replay-debugger.git",
     "directory": "replayer-adapter-nodejs"
   },
   "main": "dist/index.js",

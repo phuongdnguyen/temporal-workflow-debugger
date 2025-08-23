@@ -57,7 +57,7 @@ jobs:
           body: |
             ## Changes in this release
             
-            This release includes updates to the Temporal Workflow Debugger Go replayer adapter.
+            This release includes updates to the Temporal Workflow Replay Debugger Go replayer adapter.
             
             ### Package: temporal-replayer-adapter-go
             
@@ -68,7 +68,7 @@ jobs:
             ### Installation
             
             ```bash
-            go get github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go@${{ github.ref_name }}
+            go get github.com/phuongdnguyen/temporal-workflow-replay-debugger/replayer-adapter-go@${{ github.ref_name }}
             ```
           draft: false
           prerelease: false

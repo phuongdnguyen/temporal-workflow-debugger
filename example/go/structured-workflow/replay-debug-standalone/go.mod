@@ -20,7 +20,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.1 // indirect
 	github.com/nexus-rpc/sdk-go v0.4.0 // indirect
-	github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go v0.0.0-20250815104817-6346dbedc12e // indirect
+	github.com/phuongdnguyen/temporal-workflow-replay-debugger/replayer-adapter-go v0.0.0-20250815104817-6346dbedc12e // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/robfig/cron v1.2.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect

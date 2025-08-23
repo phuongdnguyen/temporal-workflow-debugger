@@ -39,7 +39,7 @@ func main() {
 	// Command-line flags
 	// -----------------------------------------------
 	var showHelp bool
-	flag.BoolVar(&showHelp, "help", false, "Tdlv (Temporal delve) is a temporal workflow debugger, provide ability to focus on user workflow code in debug sessions (alias: -h)")
+	flag.BoolVar(&showHelp, "help", false, "Tdlv (Temporal delve) is a workflow-awared debugger, provide ability to focus on user workflow code in debug sessions (alias: -h)")
 
 	var proxyPort int
 	flag.IntVar(&proxyPort, "p", 60000, "port for remote debugging")
@@ -54,7 +54,7 @@ func main() {
 	flag.BoolVar(&start, "start", false, "start debugger")
 
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "Tdlv (Temporal delve) is a temporal workflow debugger\n\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "Tdlv (Temporal delve) is a workflow-awared debugger\n\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [options]\n\n", os.Args[0])
 		flag.PrintDefaults()
 	}

@@ -1,4 +1,4 @@
-module github.com/phuongdnguyen/temporal-workflow-debugger/replayer-adapter-go
+module github.com/phuongdnguyen/temporal-workflow-replay-debugger/replayer-adapter-go
 
 go 1.23.0
 
