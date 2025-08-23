@@ -2,9 +2,6 @@
   "name": "@phuongdnguyen/replayer-adapter-nodejs",
   "version": "1.0.0",
   "description": "Replayer adapter and interceptors for Temporal Node.js workflows",
-  "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
-  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/phuongdnguyen/temporal-workflow-replay-debugger.git",

@@ -53,13 +53,21 @@ jobs:
           npm publish --access public
 
       # Publish to GitHub Packages
+      - name: Setup Node.js for GitHub Packages
+        if: startsWith(github.ref, 'refs/tags/replayer-adapter-nodejs-v')
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@phuongdnguyen'
+          
       - name: Publish to GitHub Packages
         if: startsWith(github.ref, 'refs/tags/replayer-adapter-nodejs-v')
         run: |
           cd replayer-adapter-nodejs
-          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" > .npmrc
-          echo "@phuongdnguyen:registry=https://npm.pkg.github.com" >> .npmrc
           npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Manual publish to both registries
       - name: Manual publish to NPM Registry
@@ -72,16 +80,24 @@ jobs:
           fi
           npm publish --access public
 
+      - name: Setup Node.js for GitHub Packages (Manual)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@phuongdnguyen'
+
       - name: Manual publish to GitHub Packages
         if: github.event_name == 'workflow_dispatch'
         run: |
           cd replayer-adapter-nodejs
-          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" > .npmrc
-          echo "@phuongdnguyen:registry=https://npm.pkg.github.com" >> .npmrc
           if [ -n "${{ github.event.inputs.version }}" ]; then
             npm version ${{ github.event.inputs.version }} --no-git-tag-version
           fi
           npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/replayer-adapter-nodejs-v')
