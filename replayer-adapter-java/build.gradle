@@ -1,0 +1,118 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'signing'
+}
+
+group = 'com.temporal'
+version = '0.1.0'
+description = 'Java adapter for debugging Temporal workflows by replaying execution history with breakpoint support'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+    withSourcesJar()
+    withJavadocJar()
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Temporal SDK
+    implementation 'io.temporal:temporal-sdk:1.30.1'
+    
+    // Temporal Testing for WorkflowReplayer
+    implementation 'io.temporal:temporal-testing:1.30.1'
+    
+    // JSON processing
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.0'
+    
+    // HTTP client for IDE communication
+    implementation 'org.apache.httpcomponents.client5:httpclient5:5.3.1'
+    
+    // Logging
+    implementation 'org.slf4j:slf4j-api:1.7.36'
+    
+    // Test dependencies
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.1'
+    testImplementation 'org.mockito:mockito-core:5.8.0'
+    testImplementation 'org.slf4j:slf4j-simple:1.7.36'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+javadoc {
+    if(JavaVersion.current().isJava9Compatible()) {
+        options.addBooleanOption('html5', true)
+    }
+    options.addStringOption('Xdoclint:none', '-quiet')
+    options.addStringOption('encoding', 'UTF-8')
+    options.addStringOption('charSet', 'UTF-8')
+}
+
+jar {
+    archiveClassifier = ''
+    
+    manifest {
+        attributes(
+            'Implementation-Title': project.name,
+            'Implementation-Version': project.version,
+            'Implementation-Vendor': 'Duy Phuong Nguyen'
+        )
+    }
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            from components.java
+            
+            pom {
+                name = 'Temporal Java Replayer Adapter'
+                description = project.description
+                url = 'https://github.com/phuongdnguyen/temporal-workflow-debugger'
+                
+                licenses {
+                    license {
+                        name = 'MIT License'
+                        url = 'https://opensource.org/licenses/MIT'
+                    }
+                }
+                
+                developers {
+                    developer {
+                        id = 'phuongdnguyen'
+                        name = 'Duy Phuong Nguyen'
+                        email = 'knowledge.phuongnguyen@gmail.com'
+                    }
+                }
+                
+                scm {
+                    connection = 'scm:git:git://github.com/phuongdnguyen/temporal-workflow-debugger.git'
+                    developerConnection = 'scm:git:ssh://github.com:phuongdnguyen/temporal-workflow-debugger.git'
+                    url = 'https://github.com/phuongdnguyen/temporal-workflow-debugger/tree/main/replayer-adapter-java'
+                }
+            }
+        }
+    }
+}
+
+signing {
+    sign publishing.publications.maven
+}
+
+// Task to build and test everything
+task buildAll {
+    dependsOn build, test, javadoc
+    description = 'Build, test, and generate documentation'
+}
+
+// Task to clean and rebuild
+task rebuild {
+    dependsOn clean, buildAll
+    description = 'Clean and rebuild everything'
+}
